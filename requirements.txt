@@ -1,4 +1,0 @@
-RPi.GPIO
-adafruit-circuitpython-servokit
-opencv-python-headless
-flask

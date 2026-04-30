@@ -1,1 +1,0 @@
-# Chromapi computer vision part
