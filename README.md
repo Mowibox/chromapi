@@ -1,4 +1,4 @@
-# chromapi
+# Chromapi
 
 ![Chromapi](https://custom-icon-badges.demolab.com/badge/Chromapi-software-a957f9?logo=chromapi)
 
