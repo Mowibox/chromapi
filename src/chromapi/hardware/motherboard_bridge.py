@@ -140,37 +140,38 @@ class BridgeClient:
         self._send_frame(Command.STATE_FEEDBACK)
         try:
             cmd, payload = self._read_reply()
-            if cmd != Response.STATE_SNAPSHOT or len(payload) != 117:
+            if cmd != Response.STATE_SNAPSHOT or len(payload) != 121:
                 self.logger.warning(f"Unexpected state snapshot size: {len(payload)} bytes")
                 return None
 
-            data = struct.unpack('<ii' + ('HhhBB' * 12) + 'hhhhhhB', payload)
+            data = struct.unpack('<iii' + ('HhhBB' * 12) + 'hhhhhhB', payload)
 
             return {
                 "power": {
                     "voltage_V": data[0] / 1_000_000.0,
                     "current_A": data[1] / 1_000_000.0,
+                    "power_W":   data[2] / 1_000_000.0,
                 },
                 "servos": [
                     {
                         "id":     i + 1,
-                        "pos":    data[2 + i * 5],
-                        "speed":  data[3 + i * 5],
-                        "load":   data[4 + i * 5],
-                        "temp_C": data[5 + i * 5],
-                        "volt_V": data[6 + i * 5] / 10.0,
+                        "pos":    data[3 + i * 5],
+                        "speed":  data[4 + i * 5],
+                        "load":   data[5 + i * 5],
+                        "temp_C": data[6 + i * 5],
+                        "volt_V": data[7 + i * 5] / 10.0,
                     }
                     for i in range(12)
                 ],
                 "imu": {
-                    "acc":  [data[62], data[63], data[64]],
-                    "gyro": [data[65], data[66], data[67]],
+                    "acc_mps2": [data[63] / 100.0,  data[64] / 100.0,  data[65] / 100.0],
+                    "gyro_rps": [data[66] / 1000.0, data[67] / 1000.0, data[68] / 1000.0],
                 },
                 "switches": {
-                    "TL": bool(data[68] & 0x01),
-                    "TR": bool(data[68] & 0x02),
-                    "BL": bool(data[68] & 0x04),
-                    "BR": bool(data[68] & 0x08),
+                    "TL": bool(data[69] & 0x01),
+                    "TR": bool(data[69] & 0x02),
+                    "BL": bool(data[69] & 0x04),
+                    "BR": bool(data[69] & 0x08),
                 },
             }
 
@@ -197,4 +198,3 @@ class BridgeClient:
             self.logger.warning(f"set_servo_id error: {e}")
             return False
         print("   -> ECHEC du feedback.")
-        
