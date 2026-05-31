@@ -169,6 +169,14 @@ all = [
 audio = [
     { name = "sounddevice" },
 ]
+rl = [
+    { name = "gymnasium" },
+    { name = "mujoco" },
+    { name = "onnxruntime", version = "1.24.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "onnxruntime", version = "1.26.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+
+[package.dev-dependencies]
 dev = [
     { name = "mypy" },
     { name = "pytest" },
@@ -178,12 +186,6 @@ dev = [
     { name = "types-requests" },
     { name = "types-toml" },
 ]
-rl = [
-    { name = "gymnasium" },
-    { name = "mujoco" },
-    { name = "onnxruntime", version = "1.24.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "onnxruntime", version = "1.26.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -191,21 +193,24 @@ requires-dist = [
     { name = "chromapi", extras = ["rl"], marker = "extra == 'all'" },
     { name = "gymnasium", marker = "extra == 'rl'", specifier = ">=0.29" },
     { name = "mujoco", marker = "extra == 'rl'", specifier = ">=3.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
     { name = "numpy", specifier = ">=2.2.5" },
     { name = "onnxruntime", marker = "extra == 'rl'", specifier = ">=1.16" },
     { name = "pyserial", specifier = ">=3.5" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
     { name = "sounddevice", marker = "extra == 'audio'", specifier = ">=0.4" },
-    { name = "types-pyyaml", marker = "extra == 'dev'" },
-    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
-    { name = "types-requests", marker = "extra == 'dev'" },
-    { name = "types-toml", marker = "extra == 'dev'" },
 ]
-provides-extras = ["audio", "rl", "all", "dev"]
+provides-extras = ["audio", "rl", "all"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.10" },
+    { name = "pytest", specifier = ">=8" },
+    { name = "pytest-asyncio" },
+    { name = "ruff", specifier = ">=0.5" },
+    { name = "types-pyyaml", specifier = ">=6.0" },
+    { name = "types-requests" },
+    { name = "types-toml" },
+]
 
 [[package]]
 name = "cloudpickle"

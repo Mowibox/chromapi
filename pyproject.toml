@@ -12,30 +12,25 @@ license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=2.2.5",
-    "pyserial>=3.5",     # UART bridge to STM32
-    "pyyaml>=6.0",       # config loading
+    "pyserial>=3.5",
+    "pyyaml>=6.0",
 ]
 
-# ── Optional dependency groups ────────────────────────────────────────────────
-
 [project.optional-dependencies]
-
-# Audio: requires PortAudio system library (apt install libportaudio2)
 audio = [
     "sounddevice>=0.4",
 ]
-
 rl = [
     "mujoco>=3.0",
     "gymnasium>=0.29",
     "onnxruntime>=1.16",
 ]
-
 all = [
     "chromapi[audio]",
     "chromapi[rl]",
 ]
 
+[dependency-groups]
 dev = [
     "pytest>=8",
     "pytest-asyncio",
@@ -44,7 +39,6 @@ dev = [
     "types-PyYAML>=6.0",
     "types-requests",
     "types-toml",
-    "types-PyYAML",
 ]
 
 [tool.setuptools]
@@ -55,8 +49,7 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-chromapi = ["**/*"]   # includes all non .py files
-
+chromapi = ["**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit_tests"]
@@ -77,9 +70,13 @@ exclude = [
 [tool.ruff.lint]
 select = ["I", "D"]
 ignore = [
-    "D203",   # conflicts with D211 
-    "D213",   # conflicts with D212
+    "D203",
+    "D213",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"src/chromapi/utils/*.py" = ["D"]
+"src/chromapi/hardware/test.py" = ["D"]
 
 [tool.mypy]
 python_version = "3.12"
