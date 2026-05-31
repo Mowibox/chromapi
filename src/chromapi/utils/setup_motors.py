@@ -1,7 +1,15 @@
+"""Motor Setup and ID Configuration Tool.
+
+Allows manual assignment of IDs to connected Feetech servomotors.
+"""
+
 import time
+
 from chromapi.hardware.motherboard_bridge import BridgeClient
 
-def main():
+
+def main() -> None:
+    """Run the interactive prompt for servo ID configuration."""
     print("==================================================")
     print(" FEETECH STS3215 ID CONFIGURATION TOOL")
     print("==================================================\n")

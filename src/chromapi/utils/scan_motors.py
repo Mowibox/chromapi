@@ -1,6 +1,13 @@
+"""Motor Scanning Utility.
+
+Pings the servo bus to discover and list all connected Feetech servomotors.
+"""
+
 from chromapi.hardware.motherboard_bridge import BridgeClient
 
-def scan_bus():
+
+def scan_bus() -> None:
+    """Scan the bus and print the IDs of responding servomotors."""
     print("Scanning motors on the bus...")
     bridge = BridgeClient()
     
