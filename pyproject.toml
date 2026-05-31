@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chromapi"
+version = "0.1.0"
+authors = [{ name = "Mowibox", email = "ousmane.thiongane@outlook.com" }]
+description = "High-level software for the Chromapi 12-DOF quadruped robot"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.2.5",
+    "pyserial>=3.5",     # UART bridge to STM32
+    "pyyaml>=6.0",       # config loading
+]
+
+# ── Optional dependency groups ────────────────────────────────────────────────
+
+[project.optional-dependencies]
+
+# Audio: requires PortAudio system library (apt install libportaudio2)
+audio = [
+    "sounddevice>=0.4",
+]
+
+rl = [
+    "mujoco>=3.0",
+    "gymnasium>=0.29",
+    "onnxruntime>=1.16",
+]
+
+all = [
+    "chromapi[audio]",
+    "chromapi[rl]",
+]
+
+dev = [
+    "pytest>=8",
+    "pytest-asyncio",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "types-PyYAML>=6.0",
+    "types-requests",
+    "types-toml",
+    "types-PyYAML",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+chromapi = ["**/*"]   # includes all non .py files
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit_tests"]
+pythonpath = "src"
+markers = [
+    "hardware: requires physical hardware (RPi + peripherals). Never runs in CI.",
+]
+
+[tool.ruff]
+exclude = [
+    "src/chromapi/__init__.py",
+    "build/*",
+    ".venv/",
+    "tests/conftest.py",
+    "tests/*"
+]
+
+[tool.ruff.lint]
+select = ["I", "D"]
+ignore = [
+    "D203",   # conflicts with D211 
+    "D213",   # conflicts with D212
+]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/"]
+ignore_missing_imports = true
+strict = true
