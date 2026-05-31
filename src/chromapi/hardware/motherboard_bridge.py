@@ -1,39 +1,55 @@
-import time
-import serial
-import struct
+"""Motherboard Bridge Module for Chromapi.
+
+Provides the UART communication interface between the Raspberry Pi and the STM32 motherboard
+using a custom protocol.
+"""
+
 import logging
+import struct
 from enum import IntEnum
+from typing import Any, Dict, List, Optional, Tuple
+
+import serial
 
 BRIDGE_SYNC_1 = 0x55
 BRIDGE_SYNC_2 = 0xAA
 
+
 class Command(IntEnum):
-    PING_BRIDGE  = 0x01
-    SET_POSITIONS = 0x02
+    """Available bridge commands."""
+
+    PING_BRIDGE    = 0x01
+    SET_POSITIONS  = 0x02
     STATE_FEEDBACK = 0x03
-    PING_SERVO   = 0x04
+    PING_SERVO     = 0x04
     GET_SERVO_INFO = 0x05
-    SET_SERVO_ID = 0x06
-    SET_LED_COLOR = 0x07
-    GET_POWER    = 0x08
+    SET_SERVO_ID   = 0x06
+    SET_LED_COLOR  = 0x07
+    GET_POWER      = 0x08
 
 
 class Response(IntEnum):
-    OK            = 0x80
-    ERROR         = 0x81
-    POWER_READING = 0x82
+    """Possible bridge responses."""
+
+    OK             = 0x80
+    ERROR          = 0x81
+    POWER_READING  = 0x82
     STATE_SNAPSHOT = 0x83
 
 
 class BridgeClient:
-    def __init__(self, port='/dev/ttyS0', baudrate=115200, timeout=1.0):
-        self.port = port
-        self.baudrate = baudrate
-        self.timeout = timeout
-        self.serial = None
-        self.logger = logging.getLogger("BridgeClient")
+    """Client class to interact with the STM32 Chromapi Motherboard."""
+
+    def __init__(self, port: str = '/dev/ttyS0', baudrate: int = 115200, timeout: float = 1.0) -> None:
+        """Initialize the BridgeClient with serial port parameters."""
+        self.port: str = port
+        self.baudrate: int = baudrate
+        self.timeout: float = timeout
+        self.serial: Optional[serial.Serial] = None
+        self.logger: logging.Logger = logging.getLogger("BridgeClient")
 
     def connect(self) -> bool:
+        """Attempt to open the serial port connection."""
         try:
             self.serial = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
             self.serial.reset_input_buffer()
@@ -43,18 +59,21 @@ class BridgeClient:
             self.logger.error(f"Failed to open serial port: {e}")
             return False
 
-    def close(self):
+    def close(self) -> None:
+        """Close the serial port connection safely."""
         if self.serial and self.serial.is_open:
             self.serial.close()
 
     def _calc_crc(self, data: bytes) -> int:
+        """Calculate the XOR checksum for the given byte array."""
         crc = 0
         for b in data:
             crc ^= b
         return crc
 
-    def _send_frame(self, cmd: Command, payload: bytes = b''):
-        if not self.serial or not self.serial.is_open:
+    def _send_frame(self, cmd: Command, payload: bytes = b'') -> None:
+        """Wrap and send a command frame over UART."""
+        if self.serial is None or not self.serial.is_open:
             raise ConnectionError("Serial port is not open.")
 
         length_byte = len(payload) + 1
@@ -64,7 +83,11 @@ class BridgeClient:
         self.serial.write(frame)
         self.serial.flush()
 
-    def _read_reply(self) -> tuple[int, bytes]:
+    def _read_reply(self) -> Tuple[int, bytes]:
+        """Read and parse an incoming reply frame from UART."""
+        if self.serial is None:
+            raise ConnectionError("Serial port is not initialized.")
+
         sync_state = 0
         while sync_state < 2:
             b = self.serial.read(1)
@@ -94,6 +117,9 @@ class BridgeClient:
         return cmd, payload
 
     def ping(self) -> bool:
+        """Send a ping command to verify STM32 connectivity."""
+        if self.serial is None:
+            return False
         self.serial.reset_input_buffer()
         self._send_frame(Command.PING_BRIDGE)
         try:
@@ -104,6 +130,7 @@ class BridgeClient:
             return False
 
     def set_led_color(self, r: int, g: int, b: int) -> bool:
+        """Set the RGB LEDs color on the motherboard."""
         self._send_frame(Command.SET_LED_COLOR, bytes([r & 0xFF, g & 0xFF, b & 0xFF]))
         try:
             cmd, _ = self._read_reply()
@@ -111,20 +138,24 @@ class BridgeClient:
         except Exception:
             return False
 
-    def get_power(self) -> tuple[float, float] | None:
+    def get_power(self) -> Optional[Tuple[float, float, float]]:
+        """Retrieve voltage, current, and power from the INA226 sensor."""
+        if self.serial is None:
+            return None
         self.serial.reset_input_buffer()
         self._send_frame(Command.GET_POWER)
         try:
             cmd, payload = self._read_reply()
-            if cmd == Response.POWER_READING and len(payload) == 8:
-                bus_uV, curr_uA = struct.unpack('<ii', payload)
-                return (bus_uV / 1_000_000.0, curr_uA / 1_000_000.0)
+            if cmd == Response.POWER_READING and len(payload) == 12:
+                bus_uV, curr_uA, power_uW = struct.unpack('<iii', payload)
+                return (bus_uV / 1_000_000.0, curr_uA / 1_000_000.0, power_uW / 1_000_000.0)
             return None
         except Exception as e:
             self.logger.warning(f"get_power error: {e}")
             return None
 
-    def set_positions(self, raw_steps: list) -> bool:
+    def set_positions(self, raw_steps: List[int]) -> bool:
+        """Send target positions to all 12 servomotors."""
         if len(raw_steps) != 12:
             raise ValueError("Expected exactly 12 raw positions (pad with 0 if unused).")
         self._send_frame(Command.SET_POSITIONS, struct.pack('<12H', *raw_steps))
@@ -135,7 +166,10 @@ class BridgeClient:
             self.logger.warning(f"set_positions error: {e}")
             return False
 
-    def get_state(self) -> dict | None:
+    def get_state(self) -> Optional[Dict[str, Any]]:
+        """Retrieve the global hardware state snapshot."""
+        if self.serial is None:
+            return None
         self.serial.reset_input_buffer()
         self._send_frame(Command.STATE_FEEDBACK)
         try:
@@ -180,6 +214,9 @@ class BridgeClient:
             return None
 
     def ping_servo(self, servo_id: int) -> bool:
+        """Ping a specific servomotor on the bus."""
+        if self.serial is None:
+            return False
         self.serial.reset_input_buffer()
         self._send_frame(Command.PING_SERVO, bytes([servo_id & 0xFF]))
         try:
@@ -189,6 +226,9 @@ class BridgeClient:
             return False
 
     def set_servo_id(self, old_id: int, new_id: int) -> bool:
+        """Change the ID of a Feetech servomotor."""
+        if self.serial is None:
+            return False
         self.serial.reset_input_buffer()
         self._send_frame(Command.SET_SERVO_ID, bytes([old_id & 0xFF, new_id & 0xFF]))
         try:
@@ -197,4 +237,3 @@ class BridgeClient:
         except Exception as e:
             self.logger.warning(f"set_servo_id error: {e}")
             return False
-        print("   -> ECHEC du feedback.")

@@ -1,0 +1,1 @@
+"""Hardware Module for Chromapi."""
