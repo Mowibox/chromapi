@@ -41,6 +41,11 @@ dev = [
     "types-toml",
 ]
 
+[project.scripts]
+chromapi-diagnostics = "chromapi.utils.hardware_diagnostic:run_diagnostics"
+chromapi-scan_motors = "chromapi.utils.scan_motors:scan_bus"
+chromapi-setup_motors = "chromapi.utils.setup_motors:main"
+
 [tool.setuptools]
 package-dir = { "" = "src" }
 include-package-data = true
