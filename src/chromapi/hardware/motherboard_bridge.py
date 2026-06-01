@@ -26,6 +26,8 @@ class Command(IntEnum):
     SET_SERVO_ID   = 0x06
     SET_LED_COLOR  = 0x07
     GET_POWER      = 0x08
+    WRITE_SERVO_REGISTER = 0x09
+    READ_SERVO_REGISTER  = 0x0A
 
 
 class Response(IntEnum):
@@ -35,6 +37,7 @@ class Response(IntEnum):
     ERROR          = 0x81
     POWER_READING  = 0x82
     STATE_SNAPSHOT = 0x83
+    SERVO_REG_VALUE = 0x84
 
 
 class BridgeClient:
@@ -237,3 +240,43 @@ class BridgeClient:
         except Exception as e:
             self.logger.warning(f"set_servo_id error: {e}")
             return False
+        
+    def write_servo_register(self, servo_id: int, reg: int, size: int, value: int) -> bool:
+        """Write 1 or 2 bytes to a specific Feetech register via the STM32 bridge."""
+        if self.serial is None:
+            return False
+        self.serial.reset_input_buffer()
+        
+        val_lsb = value & 0xFF
+        val_msb = (value >> 8) & 0xFF
+        
+        payload = bytes([servo_id & 0xFF, reg & 0xFF, size & 0xFF, val_lsb, val_msb])
+        self._send_frame(Command.WRITE_SERVO_REGISTER, payload)
+        
+        try:
+            cmd, _ = self._read_reply()
+            return cmd == Response.OK
+        except Exception as e:
+            self.logger.error(f"write_servo_register failed: {e}")
+            return False
+
+    def read_servo_register(self, servo_id: int, reg: int, size: int) -> Optional[int]:
+        """Read 1 or 2 bytes from a specific Feetech register via the STM32 bridge."""
+        if self.serial is None:
+            return None
+        self.serial.reset_input_buffer()
+        
+        payload = bytes([servo_id & 0xFF, reg & 0xFF, size & 0xFF])
+        self._send_frame(Command.READ_SERVO_REGISTER, payload)
+        
+        try:
+            cmd, reply_payload = self._read_reply()
+            if cmd == Response.SERVO_REG_VALUE and len(reply_payload) == size:
+                if size == 1:
+                    return int(reply_payload[0])
+                elif size == 2:
+                    return struct.unpack('<H', reply_payload)[0]
+            return None
+        except Exception as e:
+            self.logger.warning(f"read_servo_register error: {e}")
+            return None
