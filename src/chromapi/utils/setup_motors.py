@@ -5,12 +5,13 @@ from typing import Dict, Optional
 from chromapi.hardware.motherboard_bridge import BridgeClient
 
 # Feetech STS3215 Register Map
-REG_LOCK = 47
-REG_MODE = 33
+REG_ID = 5
 REG_P = 21
 REG_D = 22
 REG_I = 23
+REG_MODE = 33
 REG_ACCEL = 41
+REG_LOCK = 55
 
 def read_servo_config(bridge: BridgeClient, servo_id: int) -> Dict[str, Optional[int]]:
     """Read back current configuration registers directly from the hardware."""
@@ -32,18 +33,19 @@ def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> None:
     bridge.write_servo_register(target_id, REG_MODE, 1, 0)
     bridge.write_servo_register(target_id, REG_ACCEL, 1, 0)
 
-    print("[*] Setting PID = (32, 0, 32)")
+    print("[*] Setting PID = (32, 0, 0)")
     bridge.write_servo_register(target_id, REG_P, 1, 32)
-    bridge.write_servo_register(target_id, REG_D, 1, 32)
+    bridge.write_servo_register(target_id, REG_D, 1, 0)
     bridge.write_servo_register(target_id, REG_I, 1, 0)
 
     if target_id != new_id:
         print(f"[*] Changing ID to {new_id}...")
-        bridge.set_servo_id(target_id, new_id)
+        bridge.write_servo_register(target_id, REG_ID, 1, new_id)
+        time.sleep(0.05)
 
     print("[*] Locking EEPROM...")
     bridge.write_servo_register(new_id, REG_LOCK, 1, 1)
-
+    
     time.sleep(0.1)
 
     print("\n" + "="*40)
