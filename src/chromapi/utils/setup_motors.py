@@ -2,6 +2,7 @@
 
 import time
 from typing import Dict, Optional
+
 from chromapi.hardware.motherboard_bridge import BridgeClient
 
 # Feetech STS3215 Register Map

@@ -261,7 +261,7 @@ class BridgeClient:
             return False
 
     def read_servo_register(self, servo_id: int, reg: int, size: int) -> Optional[int]:
-        """Read 1 or 2 bytes from a specific Feetech register via the STM32 bridge."""
+        """Read 1 or 2 bytes from a specific Feetech register."""
         if self.serial is None:
             return None
         self.serial.reset_input_buffer()
@@ -275,8 +275,8 @@ class BridgeClient:
                 if size == 1:
                     return int(reply_payload[0])
                 elif size == 2:
-                    return struct.unpack('<H', reply_payload)[0]
+                    return int(struct.unpack('<H', reply_payload)[0])
             return None
         except Exception as e:
-            self.logger.warning(f"read_servo_register error: {e}")
+            self.logger.error(f"read_servo_register error: {e}")
             return None
