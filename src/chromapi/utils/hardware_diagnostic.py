@@ -78,3 +78,6 @@ def run_diagnostics() -> None:
     print("\n====================================================")
     print(" DIAGNOSTIC COMPLETE")
     print("====================================================")
+
+if __name__ == "__main__":
+    run_diagnostics()
