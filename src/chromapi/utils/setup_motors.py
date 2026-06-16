@@ -7,6 +7,8 @@ from chromapi.hardware.motherboard_bridge import BridgeClient
 
 # Feetech STS3215 Register Map
 REG_ID = 5
+REG_MAX_VOLT = 14
+REG_MIN_VOLT = 15
 REG_P = 21
 REG_D = 22
 REG_I = 23
@@ -20,8 +22,10 @@ def read_servo_config(bridge: BridgeClient, servo_id: int) -> Dict[str, Optional
         "P": bridge.read_servo_register(servo_id, REG_P, 1),
         "I": bridge.read_servo_register(servo_id, REG_I, 1),
         "D": bridge.read_servo_register(servo_id, REG_D, 1),
-        "Accel": bridge.read_servo_register(servo_id, REG_ACCEL, 1),
-        "Mode": bridge.read_servo_register(servo_id, REG_MODE, 1)
+        "Acceleration": bridge.read_servo_register(servo_id, REG_ACCEL, 1),
+        "Mode": bridge.read_servo_register(servo_id, REG_MODE, 1),
+        "Max Voltage": bridge.read_servo_register(servo_id, REG_MAX_VOLT, 1),
+        "Min Voltage": bridge.read_servo_register(servo_id, REG_MIN_VOLT, 1)
     }
 
 def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> None:
@@ -30,7 +34,11 @@ def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> None:
     bridge.write_servo_register(target_id, REG_LOCK, 1, 0)
     time.sleep(0.05)
 
-    print("[*] Setting Mode = 0 (Position), Accel = 0 (Instant)")
+    print("[*] Setting Voltage Limits: Min = 6.6V (66), Max = 8.4V (84)")
+    bridge.write_servo_register(target_id, REG_MIN_VOLT, 1, 66)
+    bridge.write_servo_register(target_id, REG_MAX_VOLT, 1, 84)
+
+    print("[*] Setting Mode = 0 (Position), Acceleration = 0 (Instant)")
     bridge.write_servo_register(target_id, REG_MODE, 1, 0)
     bridge.write_servo_register(target_id, REG_ACCEL, 1, 0)
 
@@ -79,14 +87,14 @@ def main() -> None:
             if new_id < 1 or new_id > 253:
                 print("The ID must be between 1 and 253.")
                 continue
-
+            print(f"[*] New target ID: {new_id}")
             input("-> Connect ONLY the target servo, then press ENTER...")
             configure_servo(bridge, 254, new_id)
             print("-> Disconnect the servo before continuing.")
             time.sleep(1)
 
     except ValueError:
-        print("[!] Invalid input.")
+        print("[!] Invalid input. Program aborted.")
     finally:
         bridge.close()
 
