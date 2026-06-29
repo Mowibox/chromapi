@@ -543,7 +543,8 @@ HTML_TEMPLATE = """
 @app.route("/")
 def index() -> str:
     """Renders the single-page HTML client."""
-    return render_template_string(HTML_TEMPLATE)
+    rendering: str = render_template_string(HTML_TEMPLATE)
+    return rendering
 
 
 @app.route("/favicon.ico")
