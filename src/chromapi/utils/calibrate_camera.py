@@ -351,7 +351,7 @@ def camera_thread() -> None:
 threading.Thread(target=camera_thread, daemon=True).start()
 
 # HTTP Routes
-@app.route("/video_feed") # type: ignore[untyped-decorator]
+@app.route("/video_feed")
 def video_feed() -> Response:
     """Streams MJPEG frames to the web UI."""
     def generate() -> Any:
@@ -364,7 +364,7 @@ def video_feed() -> Response:
     return Response(generate(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 
-@app.route("/api/status", methods=["GET"]) # type: ignore[untyped-decorator]
+@app.route("/api/status", methods=["GET"])
 def get_status() -> Response:
     """Returns real-time JSON state for the frontend polling."""
     with state_lock:
@@ -377,7 +377,7 @@ def get_status() -> Response:
         })
 
 
-@app.route("/api/toggle_auto", methods=["POST"]) # type: ignore[untyped-decorator]
+@app.route("/api/toggle_auto", methods=["POST"])
 def toggle_auto() -> Tuple[Response, int]:
     """Toggles the autonomous sample collection state."""
     global auto_mode_enabled, calibrated_RMS, per_frame_errors
@@ -396,7 +396,7 @@ def toggle_auto() -> Tuple[Response, int]:
     return jsonify({"status": "success", "message": msg}), 200
 
 
-@app.route("/api/save", methods=["POST"]) # type: ignore[untyped-decorator]
+@app.route("/api/save", methods=["POST"])
 def save() -> Tuple[Response, int]:
     """Exports camera metrics and intrinsics."""
     with state_lock:
@@ -429,7 +429,7 @@ def save() -> Tuple[Response, int]:
     return jsonify({"status": "success", "message": f"Parameters exported to {config_path}."}), 200
 
 
-@app.route("/api/reset", methods=["POST"]) # type: ignore[untyped-decorator]
+@app.route("/api/reset", methods=["POST"])
 def reset() -> Tuple[Response, int]:
     """Purges all memory buffers and resets matrices."""
     global calibrated_K, calibrated_D, calibrated_RMS, per_frame_errors, auto_mode_enabled
@@ -540,14 +540,13 @@ HTML_TEMPLATE = """
 </html>
 """
 
-@app.route("/") # type: ignore[untyped-decorator]
+@app.route("/")
 def index() -> str:
     """Renders the single-page HTML client."""
-    rendering: str = render_template_string(HTML_TEMPLATE)
-    return rendering
+    return render_template_string(HTML_TEMPLATE)
 
 
-@app.route("/favicon.ico") # type: ignore[untyped-decorator]
+@app.route("/favicon.ico")
 def serve_favicon() -> Any:
     """Resolves and serves the favicon.ico dynamically from assets directory."""
     base_dir = Path(__file__).resolve().parent.parent
