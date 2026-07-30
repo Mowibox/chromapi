@@ -566,7 +566,7 @@ def serve_favicon() -> Any:
 
 if __name__ == "__main__":
     try:
-        from waitress import serve # type: ignore[import-untyped]
+        from waitress import serve
         print("[*] WSGI Waitress production server running on 0.0.0.0:5000...")
         serve(app, host="0.0.0.0", port=5000, _quiet=True)
     except ImportError:
