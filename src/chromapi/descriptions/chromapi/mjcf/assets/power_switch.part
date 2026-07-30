@@ -1,0 +1,13 @@
+{
+    "configuration": "default",
+    "documentId": "3b2f6609101a115f427bb3a2",
+    "documentMicroversion": "93cbf2e2da0bcce45b6dd4a8",
+    "elementId": "c12073f28d0c40cf5a26d8af",
+    "fullConfiguration": "default",
+    "id": "M/4volDiDXvibyj3H",
+    "isStandardContent": false,
+    "name": "power_switch <1>",
+    "partId": "JHD",
+    "suppressed": false,
+    "type": "Part"
+}

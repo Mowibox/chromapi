@@ -1,0 +1,13 @@
+{
+    "configuration": "default",
+    "documentId": "3b2f6609101a115f427bb3a2",
+    "documentMicroversion": "93cbf2e2da0bcce45b6dd4a8",
+    "elementId": "47781020ae77dada273a279a",
+    "fullConfiguration": "default",
+    "id": "I/GKXyXMGhMpIfdYN",
+    "isStandardContent": false,
+    "name": "18650_li_ion_battery <2>",
+    "partId": "JFD",
+    "suppressed": false,
+    "type": "Part"
+}
