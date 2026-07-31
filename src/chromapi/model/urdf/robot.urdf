@@ -5,9 +5,9 @@
   <!-- Link chassis_assembly -->
   <link name="chassis_assembly">
     <inertial>
-      <origin xyz="0.000651038 0.00449004 0.0197985" rpy="0 0 0"/>
-      <mass value="312.693"/>
-      <inertia ixx="1.09407" ixy="-0.00364423" ixz="0.000457193" iyy="0.67421" iyz="0.0031636" izz="1.72478"/>
+      <origin xyz="0.00045613 0.00125081 0.0401881" rpy="0 0 0"/>
+      <mass value="1.00501"/>
+      <inertia ixx="0.00421837" ixy="-5.50724e-06" ixz="9.82385e-06" iyy="0.0025104" iyz="3.50996e-05" izz="0.00472747"/>
     </inertial>
     <!-- Part vis_1__corps1 -->
     <visual>
@@ -699,9 +699,9 @@
   <!-- Link left_coxa_assembly -->
   <link name="left_coxa_assembly">
     <inertial>
-      <origin xyz="0.0350943 0.0355951 0.0234088" rpy="0 0 0"/>
-      <mass value="55.0475"/>
-      <inertia ixx="0.00972858" ixy="-0.00250142" ixz="-7.50124e-06" iyy="0.00980164" iyz="-7.70182e-06" izz="0.0139455"/>
+      <origin xyz="0.0259668 0.0262575 0.0200654" rpy="0 0 0"/>
+      <mass value="0.102452"/>
+      <inertia ixx="4.04735e-05" ixy="-1.34094e-05" ixz="-4.36977e-06" iyy="3.91372e-05" iyz="-4.47741e-06" izz="4.81425e-05"/>
     </inertial>
     <!-- Part vis_1__corps1_5 -->
     <visual>
@@ -867,9 +867,9 @@
   <!-- Link left_femur_assembly -->
   <link name="left_femur_assembly">
     <inertial>
-      <origin xyz="0.0388859 -0.0388711 0.0156693" rpy="0 0 0"/>
-      <mass value="55.0477"/>
-      <inertia ixx="0.0106097" ixy="0.00335082" ixz="2.61211e-05" iyy="0.0106092" iyz="-2.60952e-05" izz="0.0122655"/>
+      <origin xyz="0.0289369 -0.0285694 0.0156152" rpy="0 0 0"/>
+      <mass value="0.10275"/>
+      <inertia ixx="4.08031e-05" ixy="1.8432e-05" ixz="-2.79989e-07" iyy="4.10645e-05" iyz="2.83011e-07" izz="4.96817e-05"/>
     </inertial>
     <!-- Part corps14_6 -->
     <visual>
@@ -1162,9 +1162,9 @@
   <!-- Link left_coxa_assembly_2 -->
   <link name="left_coxa_assembly_2">
     <inertial>
-      <origin xyz="0.0350943 0.0355951 0.0234088" rpy="0 0 0"/>
-      <mass value="55.0475"/>
-      <inertia ixx="0.00972858" ixy="-0.00250142" ixz="-7.50124e-06" iyy="0.00980164" iyz="-7.70182e-06" izz="0.0139455"/>
+      <origin xyz="0.0259668 0.0262575 0.0200654" rpy="0 0 0"/>
+      <mass value="0.102452"/>
+      <inertia ixx="4.04735e-05" ixy="-1.34094e-05" ixz="-4.36977e-06" iyy="3.91372e-05" iyz="-4.47741e-06" izz="4.81425e-05"/>
     </inertial>
     <!-- Part vis_1__corps1_7 -->
     <visual>
@@ -1330,9 +1330,9 @@
   <!-- Link left_femur_assembly_2 -->
   <link name="left_femur_assembly_2">
     <inertial>
-      <origin xyz="0.0388859 -0.0388711 0.0156693" rpy="0 0 0"/>
-      <mass value="55.0477"/>
-      <inertia ixx="0.0106097" ixy="0.00335082" ixz="2.61211e-05" iyy="0.0106092" iyz="-2.60952e-05" izz="0.0122655"/>
+      <origin xyz="0.0289369 -0.0285694 0.0156152" rpy="0 0 0"/>
+      <mass value="0.10275"/>
+      <inertia ixx="4.08031e-05" ixy="1.8432e-05" ixz="-2.79989e-07" iyy="4.10645e-05" iyz="2.83011e-07" izz="4.96817e-05"/>
     </inertial>
     <!-- Part corps14_8 -->
     <visual>
@@ -1625,9 +1625,9 @@
   <!-- Link right_coxa_assembly -->
   <link name="right_coxa_assembly">
     <inertial>
-      <origin xyz="0.0350943 0.0355951 -0.0234088" rpy="0 0 0"/>
-      <mass value="55.0475"/>
-      <inertia ixx="0.00972858" ixy="-0.00250142" ixz="7.50295e-06" iyy="0.00980164" iyz="7.66175e-06" izz="0.0139455"/>
+      <origin xyz="0.0259668 0.0262575 -0.0200654" rpy="0 0 0"/>
+      <mass value="0.102452"/>
+      <inertia ixx="4.04735e-05" ixy="-1.34094e-05" ixz="4.3698e-06" iyy="3.91371e-05" iyz="4.47736e-06" izz="4.81424e-05"/>
     </inertial>
     <!-- Part corps14_9 -->
     <visual>
@@ -1793,9 +1793,9 @@
   <!-- Link right_femur_assembly -->
   <link name="right_femur_assembly">
     <inertial>
-      <origin xyz="-0.0388711 -0.0388859 -0.0156693" rpy="0 0 0"/>
-      <mass value="55.0477"/>
-      <inertia ixx="0.0106092" ixy="-0.00335082" ixz="2.61161e-05" iyy="0.0106097" iyz="2.61002e-05" izz="0.0122655"/>
+      <origin xyz="-0.0285694 -0.0289369 -0.0156152" rpy="0 0 0"/>
+      <mass value="0.10275"/>
+      <inertia ixx="4.10645e-05" ixy="-1.84321e-05" ixz="-2.82986e-07" iyy="4.08031e-05" iyz="-2.79999e-07" izz="4.96819e-05"/>
     </inertial>
     <!-- Part connector_f_1__corps1_10 -->
     <visual>
@@ -2088,9 +2088,9 @@
   <!-- Link right_coxa_assembly_2 -->
   <link name="right_coxa_assembly_2">
     <inertial>
-      <origin xyz="0.0350943 0.0355951 -0.0234088" rpy="0 0 0"/>
-      <mass value="55.0475"/>
-      <inertia ixx="0.00972858" ixy="-0.00250142" ixz="7.50295e-06" iyy="0.00980164" iyz="7.66175e-06" izz="0.0139455"/>
+      <origin xyz="0.0259668 0.0262575 -0.0200654" rpy="0 0 0"/>
+      <mass value="0.102452"/>
+      <inertia ixx="4.04735e-05" ixy="-1.34094e-05" ixz="4.3698e-06" iyy="3.91371e-05" iyz="4.47736e-06" izz="4.81424e-05"/>
     </inertial>
     <!-- Part corps14_11 -->
     <visual>
@@ -2256,9 +2256,9 @@
   <!-- Link right_femur_assembly_2 -->
   <link name="right_femur_assembly_2">
     <inertial>
-      <origin xyz="-0.0388711 -0.0388859 -0.0156693" rpy="0 0 0"/>
-      <mass value="55.0477"/>
-      <inertia ixx="0.0106092" ixy="-0.00335082" ixz="2.61161e-05" iyy="0.0106097" iyz="2.61002e-05" izz="0.0122655"/>
+      <origin xyz="-0.0285694 -0.0289369 -0.0156152" rpy="0 0 0"/>
+      <mass value="0.10275"/>
+      <inertia ixx="4.10645e-05" ixy="-1.84321e-05" ixz="-2.82986e-07" iyy="4.08031e-05" iyz="-2.79999e-07" izz="4.96819e-05"/>
     </inertial>
     <!-- Part connector_f_1__corps1_12 -->
     <visual>
