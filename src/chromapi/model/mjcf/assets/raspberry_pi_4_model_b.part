@@ -1,0 +1,13 @@
+{
+    "configuration": "default",
+    "documentId": "3b2f6609101a115f427bb3a2",
+    "documentMicroversion": "d270632ecac56f40c8c48c10",
+    "elementId": "d7904e715901c1613c5c7212",
+    "fullConfiguration": "default",
+    "id": "MdJXeNeG2CWlT+h71",
+    "isStandardContent": false,
+    "name": "raspberry_pi_4_model_b <1>",
+    "partId": "JGD",
+    "suppressed": false,
+    "type": "Part"
+}

@@ -1,0 +1,13 @@
+{
+    "configuration": "default",
+    "documentId": "3b2f6609101a115f427bb3a2",
+    "documentMicroversion": "d270632ecac56f40c8c48c10",
+    "elementId": "1a07c1fa99ac8e41cacac193",
+    "fullConfiguration": "default",
+    "id": "MkNDgFv8V+CM6Pk4h",
+    "isStandardContent": false,
+    "name": "right_femur <1>",
+    "partId": "RIBD",
+    "suppressed": false,
+    "type": "Part"
+}

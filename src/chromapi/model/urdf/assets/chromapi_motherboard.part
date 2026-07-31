@@ -1,0 +1,13 @@
+{
+    "configuration": "default",
+    "documentId": "3b2f6609101a115f427bb3a2",
+    "documentMicroversion": "d270632ecac56f40c8c48c10",
+    "elementId": "641f9e768cee79027590d85c",
+    "fullConfiguration": "default",
+    "id": "MFPBdI+T3o7kn44lt",
+    "isStandardContent": false,
+    "name": "chromapi_motherboard <2>",
+    "partId": "JGD",
+    "suppressed": false,
+    "type": "Part"
+}

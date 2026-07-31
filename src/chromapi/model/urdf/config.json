@@ -1,0 +1,8 @@
+{
+    "url": "https://cad.onshape.com/documents/3b2f6609101a115f427bb3a2/w/dda5699ddfe216cfbe74c22b/e/50bb405a7750d04ab1c412db",
+    "output_format": "urdf",
+    "assembly_name": "chromapi",
+    "robot_name": "chromapi",
+    "simplify_stls": true,
+    "max_stl_size": 1.0
+}

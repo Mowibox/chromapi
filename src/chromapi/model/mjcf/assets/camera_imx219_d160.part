@@ -1,0 +1,13 @@
+{
+    "configuration": "default",
+    "documentId": "3b2f6609101a115f427bb3a2",
+    "documentMicroversion": "d270632ecac56f40c8c48c10",
+    "elementId": "97eae7d079ec1f6c9db4391b",
+    "fullConfiguration": "default",
+    "id": "MpnkH8xSH0pN7QUzo",
+    "isStandardContent": false,
+    "name": "camera_imx219_d160 <3>",
+    "partId": "JUD",
+    "suppressed": false,
+    "type": "Part"
+}
