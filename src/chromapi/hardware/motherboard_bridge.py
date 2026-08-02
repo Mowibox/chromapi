@@ -50,7 +50,7 @@ LED_RING_COUNT = 18
 class BridgeClient:
     """Client class to interact with the STM32 Chromapi Motherboard."""
 
-    def __init__(self, port: str = '/dev/ttyS0', baudrate: int = 115200, timeout: float = 1.0) -> None:
+    def __init__(self, port: str = '/dev/ttyS0', baudrate: int = 1000000, timeout: float = 1.0) -> None:
         """Initialize the BridgeClient with serial port parameters."""
         self.port: str = port
         self.baudrate: int = baudrate
