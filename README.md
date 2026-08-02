@@ -9,8 +9,11 @@
 ![Issues](https://img.shields.io/github/issues/Mowibox/chromapi)
 ![Stars](https://img.shields.io/github/stars/Mowibox/chromapi?style=social)
 
-
 Chromapi is a 4-legged robot project on which I'm working by my own.
+
+## Getting started
+
+*Coming soon...*
 
 ## Authors
 
@@ -19,9 +22,17 @@ Chromapi is a 4-legged robot project on which I'm working by my own.
 | <img src="https://github.com/Mowibox.png" width="100"> |
 | [**Ousmane THIONGANE**](https://mowibox.github.io) |
 
-## Documentation
+## Sponsors & Acknowledgements
 
-*Coming soon...*
+This project has been made possible thanks to the sponsors listed below. Their contributions in manufacturing, assembly, and prototyping have greatly accelerated the development of Chromapi.
+
+| | |
+| :---: | :---: |
+| <a href="https://www.pcbway.com"><img src="./assets/pcbway.jpg" width="150" alt="PCBWay"></a> | <a href="https://www.ensea.fr"><img src="./assets/ensea.jpg" width="150" alt="ENSEA"></a> |
+| [**PCBWay**](https://www.pcbway.com) | [**ENSEA**](https://www.ensea.fr) |
+| PCB Manufacturing & Assembly | 3D Printing & Prototyping |
+
+> Huge thanks to everyone who gave me feedback on the Chromapi's design, shared ideas, or simply took the time to brainstorm with me. This project wouldn't be where it is today without your help!
 
 ## Contributions
 
