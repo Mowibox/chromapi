@@ -36,6 +36,8 @@ This project has been made possible thanks to the sponsors listed below. Their c
 
 </div>
 
+--- 
+
 > Huge thanks to everyone who gave me feedback on the Chromapi's design, shared ideas, or simply took the time to brainstorm with me. This project wouldn't be where it is today without your help!
 
 ## Contributions
