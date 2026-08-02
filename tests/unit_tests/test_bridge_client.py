@@ -54,9 +54,9 @@ def test_calc_crc(bridge: BridgeClient) -> None:
 
 def test_send_frame_format(bridge: BridgeClient, mock_serial: DummySerial) -> None:
     """Verifies that _send_frame generates the exact byte sequence expected."""
-    bridge.set_led_color(10, 20, 30)
+    bridge.set_led_color_all(10, 20, 30)
     
-    crc_data = bytes([0x04, 0x07, 10, 20, 30])
+    crc_data = bytes([0x05, 0x07, 10, 20, 30])
     expected_crc = bridge._calc_crc(crc_data)
     expected_frame = bytes([0x55, 0xAA]) + crc_data + bytes([expected_crc])
     
