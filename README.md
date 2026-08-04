@@ -1,5 +1,7 @@
 # Chromapi
 
+Chromapi is a 4-legged robot project on which I'm working by my own.
+
 ![Chromapi](https://custom-icon-badges.demolab.com/badge/Chromapi-software-a957f9?logo=chromapi)
 ![Discord](https://img.shields.io/discord/1383790297594728518?color=7289DA&logo=discord&logoColor=white&label=Discord)
 ![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python)
@@ -9,11 +11,24 @@
 ![Issues](https://img.shields.io/github/issues/Mowibox/chromapi)
 ![Stars](https://img.shields.io/github/stars/Mowibox/chromapi?style=social)
 
-Chromapi is a 4-legged robot project on which I'm working by my own.
+<p align="center">
+  <img alt="chromapi" src="./assets/chromapi.png"/>
+</p>
 
 ## Getting started
 
 *Coming soon...*
+
+## Project overview
+
+| Resource | Description | Location | Status |
+| :--- | :--- | :--- | :--- |
+| **📋 Bill of Materials** | Complete hardware, electronics, and 3D printed parts list to build Chromapi from scratch. | [`/docs/bom.md`](./docs/bom.md) | *Coming Soon...* |
+| **💻 Software API** | Python control framework, hardware interfaces, and kinematic solvers. | [`/src/chromapi`](./src/chromapi/) | *Work in Progress* |
+| **📐 CAD Model** | 3D Mechanical design and robot assembly workspace. | [Onshape Document](https://cad.onshape.com/documents/3b2f6609101a115f427bb3a2/w/dda5699ddfe216cfbe74c22b/e/50bb405a7750d04ab1c412db?renderMode=0&uiState=6a7266a5caff22fc791d5f8b) | **Available** |
+| **🛠️ Hardware Utilities** | Full system diagnostics, and motor configuration tools. | [`/src/chromapi/utils`](./src/chromapi/utils) | **Available** |
+| **🤖 Simulation Models** | URDF and XML files for MuJoCo and RL environments. | [`/src/chromapi/model`](./src/chromapi/model) | **Available** |
+| **⚡ Electronics** | Custom PCB files, schematics, and low-level firmware. | [`chromapi_motherboard` repository](https://github.com/Mowibox/chromapi_motherboard) | **Available** |
 
 ## Authors
 
