@@ -1,12 +1,12 @@
 {
     "configuration": "default",
     "documentId": "3b2f6609101a115f427bb3a2",
-    "documentMicroversion": "aa2b94b6fd5a6192a5f08256",
+    "documentMicroversion": "b62cd9f083e681ccc05a2ddc",
     "elementId": "fbfcd7397b86650ac5299410",
     "fullConfiguration": "default",
     "id": "MJvnD81Miv58FjxLY",
     "isStandardContent": false,
-    "name": "Composite part 1 <1>",
+    "name": "microswitch <1>",
     "partId": "JGD",
     "suppressed": false,
     "type": "Part"

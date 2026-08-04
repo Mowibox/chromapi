@@ -5,9 +5,9 @@
   <!-- Link chassis_assembly -->
   <link name="chassis_assembly">
     <inertial>
-      <origin xyz="0.050704 0.0152833 0.0332729" rpy="0 0 0"/>
-      <mass value="0.607607"/>
-      <inertia ixx="0.00243032" ixy="-4.47138e-06" ixz="4.79084e-06" iyy="0.00148357" iyz="2.29624e-05" izz="0.00297022"/>
+      <origin xyz="0.0510886 0.0173608 0.0348428" rpy="0 0 0"/>
+      <mass value="0.750607"/>
+      <inertia ixx="0.0026081" ixy="-1.6484e-08" ixz="-1.07459e-07" iyy="0.00155748" iyz="1.65499e-05" izz="0.00317391"/>
     </inertial>
     <!-- Part vis_1__corps1 -->
     <visual>
@@ -57,25 +57,25 @@
         <mesh filename="package://assets/corps14.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1 -->
     <visual>
       <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part speaker -->
     <visual>
-      <origin xyz="0.0361841 -0.00237623 0.0852744" rpy="1.5708 -0 0"/>
+      <origin xyz="0.0361841 -0.00237623 0.0846744" rpy="1.5708 -0 0"/>
       <geometry>
         <mesh filename="package://assets/speaker.stl"/>
       </geometry>
@@ -84,7 +84,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0361841 -0.00237623 0.0852744" rpy="1.5708 -0 0"/>
+      <origin xyz="0.0361841 -0.00237623 0.0846744" rpy="1.5708 -0 0"/>
       <geometry>
         <mesh filename="package://assets/speaker.stl"/>
       </geometry>
@@ -233,20 +233,20 @@
         <mesh filename="package://assets/chromapi_motherboard.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_2 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_2 -->
     <visual>
       <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_2_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_2_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_1_3 -->
@@ -297,20 +297,20 @@
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_3 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_3 -->
     <visual>
       <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_3_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_3_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_2 -->
@@ -457,20 +457,20 @@
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_4 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_4 -->
     <visual>
       <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_4_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_4_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_4 -->
@@ -815,20 +815,20 @@
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_5 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_5 -->
     <visual>
       <origin xyz="-0.050871 -0.0001 0.023415" rpy="-1.5708 -0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_5_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_5_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="-0.050871 -0.0001 0.023415" rpy="-1.5708 -0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part composant4_1__corps1_5 -->
@@ -951,20 +951,20 @@
         <mesh filename="package://assets/composant3_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_6 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_6 -->
     <visual>
       <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_6_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_6_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_6 -->
@@ -1035,9 +1035,9 @@
   <!-- Link left_tibia_assembly -->
   <link name="left_tibia_assembly">
     <inertial>
-      <origin xyz="-0.014189 -0.0441124 0.0155067" rpy="0 0 0"/>
-      <mass value="0.0401299"/>
-      <inertia ixx="3.50842e-05" ixy="-1.50103e-05" ixz="-1.19066e-07" iyy="1.95723e-05" iyz="-3.58172e-07" izz="3.97112e-05"/>
+      <origin xyz="-0.0149344 -0.0451295 0.015502" rpy="0 0 0"/>
+      <mass value="0.0411317"/>
+      <inertia ixx="3.67987e-05" ixy="-1.62545e-05" ixz="-1.24811e-07" iyy="2.05001e-05" iyz="-3.6601e-07" izz="4.23481e-05"/>
     </inertial>
     <!-- Part composant3_1__corps1_3 -->
     <visual>
@@ -1087,20 +1087,20 @@
         <mesh filename="package://assets/composant2_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part composite_part_1 -->
+    <!-- Part microswitch -->
     <visual>
-      <origin xyz="-0.0361429 -0.0866469 0.018215" rpy="-0 0 2.26893"/>
+      <origin xyz="-0.0355205 -0.0848905 0.018215" rpy="-0 0 2.44346"/>
       <geometry>
-        <mesh filename="package://assets/composite_part_1.stl"/>
+        <mesh filename="package://assets/microswitch.stl"/>
       </geometry>
-      <material name="composite_part_1_material">
+      <material name="microswitch_material">
         <color rgba="0.972549 0.529412 0.00392157 1"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.0361429 -0.0866469 0.018215" rpy="-0 0 2.26893"/>
+      <origin xyz="-0.0355205 -0.0848905 0.018215" rpy="-0 0 2.44346"/>
       <geometry>
-        <mesh filename="package://assets/composite_part_1.stl"/>
+        <mesh filename="package://assets/microswitch.stl"/>
       </geometry>
     </collision>
     <!-- Part foot -->
@@ -1278,20 +1278,20 @@
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_7 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_7 -->
     <visual>
       <origin xyz="-0.050871 -0.0001 0.023415" rpy="-1.5708 0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_7_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_7_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="-0.050871 -0.0001 0.023415" rpy="-1.5708 0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part composant4_1__corps1_7 -->
@@ -1414,20 +1414,20 @@
         <mesh filename="package://assets/composant3_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_8 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_8 -->
     <visual>
       <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 -0 1.5708"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_8_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_8_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 -0 1.5708"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_8 -->
@@ -1498,9 +1498,9 @@
   <!-- Link left_tibia_assembly_2 -->
   <link name="left_tibia_assembly_2">
     <inertial>
-      <origin xyz="0.0441124 -0.014189 0.0155067" rpy="0 0 0"/>
-      <mass value="0.0401299"/>
-      <inertia ixx="1.95723e-05" ixy="1.50103e-05" ixz="3.58172e-07" iyy="3.50842e-05" iyz="-1.19066e-07" izz="3.97112e-05"/>
+      <origin xyz="0.0451295 -0.0149344 0.015502" rpy="0 0 0"/>
+      <mass value="0.0411317"/>
+      <inertia ixx="2.05001e-05" ixy="1.62545e-05" ixz="3.6601e-07" iyy="3.67987e-05" iyz="-1.24811e-07" izz="4.23481e-05"/>
     </inertial>
     <!-- Part composant3_1__corps1_6 -->
     <visual>
@@ -1550,20 +1550,20 @@
         <mesh filename="package://assets/composant2_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part composite_part_1_2 -->
+    <!-- Part microswitch_2 -->
     <visual>
-      <origin xyz="0.0866469 -0.0361429 0.018215" rpy="0 0 -2.44346"/>
+      <origin xyz="0.0848905 -0.0355205 0.018215" rpy="0 0 -2.26893"/>
       <geometry>
-        <mesh filename="package://assets/composite_part_1.stl"/>
+        <mesh filename="package://assets/microswitch.stl"/>
       </geometry>
-      <material name="composite_part_1_2_material">
+      <material name="microswitch_2_material">
         <color rgba="0.972549 0.529412 0.00392157 1"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0866469 -0.0361429 0.018215" rpy="0 0 -2.44346"/>
+      <origin xyz="0.0848905 -0.0355205 0.018215" rpy="0 0 -2.26893"/>
       <geometry>
-        <mesh filename="package://assets/composite_part_1.stl"/>
+        <mesh filename="package://assets/microswitch.stl"/>
       </geometry>
     </collision>
     <!-- Part foot_2 -->
@@ -1661,20 +1661,20 @@
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_9 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_9 -->
     <visual>
       <origin xyz="-0.050871 -0.0001 -0.023415" rpy="-1.5708 0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_9_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_9_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="-0.050871 -0.0001 -0.023415" rpy="-1.5708 0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_1_9 -->
@@ -1813,20 +1813,20 @@
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_10 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_10 -->
     <visual>
       <origin xyz="1e-05 -0.055871 -0.015415" rpy="-3.14159 -0 -1.5708"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_10_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_10_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="1e-05 -0.055871 -0.015415" rpy="-3.14159 -0 -1.5708"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_1_10 -->
@@ -1961,9 +1961,9 @@
   <!-- Link right_tibia_assembly -->
   <link name="right_tibia_assembly">
     <inertial>
-      <origin xyz="0.0441124 -0.0141889 -0.0155067" rpy="0 0 0"/>
-      <mass value="0.0401299"/>
-      <inertia ixx="1.95723e-05" ixy="1.50103e-05" ixz="-3.58176e-07" iyy="3.50843e-05" iyz="1.19078e-07" izz="3.97113e-05"/>
+      <origin xyz="0.0451294 -0.0149344 -0.015502" rpy="0 0 0"/>
+      <mass value="0.0411317"/>
+      <inertia ixx="2.05001e-05" ixy="1.62545e-05" ixz="-3.65985e-07" iyy="3.67988e-05" iyz="1.248e-07" izz="4.23482e-05"/>
     </inertial>
     <!-- Part foot_3 -->
     <visual>
@@ -2013,20 +2013,20 @@
         <mesh filename="package://assets/right_tibia.stl"/>
       </geometry>
     </collision>
-    <!-- Part composite_part_1_3 -->
+    <!-- Part microswitch_3 -->
     <visual>
       <origin xyz="0.0848905 -0.0355205 -0.012415" rpy="0 0 -2.26893"/>
       <geometry>
-        <mesh filename="package://assets/composite_part_1.stl"/>
+        <mesh filename="package://assets/microswitch.stl"/>
       </geometry>
-      <material name="composite_part_1_3_material">
+      <material name="microswitch_3_material">
         <color rgba="0.972549 0.529412 0.00392157 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="0.0848905 -0.0355205 -0.012415" rpy="0 0 -2.26893"/>
       <geometry>
-        <mesh filename="package://assets/composite_part_1.stl"/>
+        <mesh filename="package://assets/microswitch.stl"/>
       </geometry>
     </collision>
     <!-- Part composant3_1__corps1_9 -->
@@ -2124,20 +2124,20 @@
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_11 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_11 -->
     <visual>
       <origin xyz="-0.050871 -0.0001 -0.023415" rpy="-1.5708 -0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_11_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_11_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="-0.050871 -0.0001 -0.023415" rpy="-1.5708 -0 3.14159"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_1_11 -->
@@ -2276,20 +2276,20 @@
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
     </collision>
-    <!-- Part vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_12 -->
+    <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_12 -->
     <visual>
       <origin xyz="1e-05 -0.055871 -0.015415" rpy="3.14159 0 -1.5708"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
-      <material name="vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1_12_material">
+      <material name="vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_12_material">
         <color rgba="0.796078 0.796078 0.796078 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="1e-05 -0.055871 -0.015415" rpy="3.14159 0 -1.5708"/>
       <geometry>
-        <mesh filename="package://assets/vis_à_tête_tronconique_jis_b_1111___m3_x_4___h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
+        <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_1_12 -->
@@ -2424,9 +2424,9 @@
   <!-- Link right_tibia_assembly_2 -->
   <link name="right_tibia_assembly_2">
     <inertial>
-      <origin xyz="0.0441124 -0.0141889 -0.0155067" rpy="0 0 0"/>
-      <mass value="0.0401299"/>
-      <inertia ixx="1.95723e-05" ixy="1.50103e-05" ixz="-3.58176e-07" iyy="3.50843e-05" iyz="1.19078e-07" izz="3.97113e-05"/>
+      <origin xyz="0.0451294 -0.0149344 -0.015502" rpy="0 0 0"/>
+      <mass value="0.0411317"/>
+      <inertia ixx="2.05001e-05" ixy="1.62545e-05" ixz="-3.65985e-07" iyy="3.67988e-05" iyz="1.248e-07" izz="4.23482e-05"/>
     </inertial>
     <!-- Part foot_4 -->
     <visual>
@@ -2476,20 +2476,20 @@
         <mesh filename="package://assets/right_tibia.stl"/>
       </geometry>
     </collision>
-    <!-- Part composite_part_1_4 -->
+    <!-- Part microswitch_4 -->
     <visual>
       <origin xyz="0.0848905 -0.0355205 -0.012415" rpy="0 0 -2.26893"/>
       <geometry>
-        <mesh filename="package://assets/composite_part_1.stl"/>
+        <mesh filename="package://assets/microswitch.stl"/>
       </geometry>
-      <material name="composite_part_1_4_material">
+      <material name="microswitch_4_material">
         <color rgba="0.972549 0.529412 0.00392157 1"/>
       </material>
     </visual>
     <collision>
       <origin xyz="0.0848905 -0.0355205 -0.012415" rpy="0 0 -2.26893"/>
       <geometry>
-        <mesh filename="package://assets/composite_part_1.stl"/>
+        <mesh filename="package://assets/microswitch.stl"/>
       </geometry>
     </collision>
     <!-- Part composant3_1__corps1_12 -->

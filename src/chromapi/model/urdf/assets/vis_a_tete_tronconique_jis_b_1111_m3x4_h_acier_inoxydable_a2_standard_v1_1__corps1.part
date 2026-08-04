@@ -1,12 +1,12 @@
 {
     "configuration": "default",
     "documentId": "3b2f6609101a115f427bb3a2",
-    "documentMicroversion": "aa2b94b6fd5a6192a5f08256",
+    "documentMicroversion": "de2b1696c5d16b1395a59560",
     "elementId": "5b37a2eb1b05e94b4f5805a5",
     "fullConfiguration": "default",
     "id": "M5lmQ9Sk8uyM1En+Y",
     "isStandardContent": false,
-    "name": "Vis \u00e0 t\u00eate tronconique JIS B 1111 - M3 x 4 - H Acier inoxydable A2 Standard v1:1__Corps1 <3>",
+    "name": "vis_a_tete_tronconique_JIS_B_1111-M3x4-H_Acier_inoxydable_A2_Standard_v1:1__Corps1 <3>",
     "partId": "JFj",
     "suppressed": false,
     "type": "Part"
