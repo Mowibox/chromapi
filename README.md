@@ -17,6 +17,10 @@ Chromapi is a 4-legged robot project on which I'm working by my own.
 
 ## Getting started
 
+<p align="center">
+  <img alt="chromapi" src="./assets/chromapi_logo.png" width="300">
+</p>
+
 *Coming soon...*
 
 ## Project overview
