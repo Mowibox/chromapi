@@ -16,7 +16,7 @@ def run_diagnostics() -> None:
     print(" CHROMAPI HARDWARE DIAGNOSTIC TOOL")
     print("====================================================\n")
 
-    bridge = BridgeClient(port='/dev/ttyS0', baudrate=115200)
+    bridge = BridgeClient(port='/dev/ttyS0', baudrate=1000000)
     
     print("[*] Testing UART Bridge Connection...")
     if not bridge.connect():
@@ -73,7 +73,7 @@ def run_diagnostics() -> None:
     else:
         print("    [FAIL] Audio soundcard NOT detected. Check Device Tree Overlay (.dtbo) and I2S wiring.")
 
-    bridge.set_led_color(0, 0, 0)
+    bridge.set_led_color_all(0, 0, 0)
     bridge.close()
     print("\n====================================================")
     print(" DIAGNOSTIC COMPLETE")

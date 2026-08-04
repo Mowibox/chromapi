@@ -18,32 +18,39 @@ BRIDGE_SYNC_2 = 0xAA
 class Command(IntEnum):
     """Available bridge commands."""
 
-    PING_BRIDGE    = 0x01
-    SET_POSITIONS  = 0x02
-    STATE_FEEDBACK = 0x03
-    PING_SERVO     = 0x04
-    GET_SERVO_INFO = 0x05
-    SET_SERVO_ID   = 0x06
-    SET_LED_COLOR  = 0x07
-    GET_POWER      = 0x08
-    WRITE_SERVO_REGISTER = 0x09
-    READ_SERVO_REGISTER  = 0x0A
-
+    PING_BRIDGE          = 0x01
+    SET_POSITIONS        = 0x02
+    STATE_FEEDBACK       = 0x03
+    PING_SERVO           = 0x04
+    GET_SERVO_INFO       = 0x05
+    SET_SERVO_ID         = 0x06
+    SET_LED_COLOR        = 0x07
+    SET_LED_RING_BULK    = 0x08
+    GET_POWER            = 0x09
+    WRITE_SERVO_REGISTER = 0x0A
+    READ_SERVO_REGISTER  = 0x0B
 
 class Response(IntEnum):
     """Possible bridge responses."""
 
-    OK             = 0x80
-    ERROR          = 0x81
-    POWER_READING  = 0x82
-    STATE_SNAPSHOT = 0x83
+    OK              = 0x80
+    ERROR           = 0x81
+    POWER_READING   = 0x82
+    STATE_SNAPSHOT  = 0x83
     SERVO_REG_VALUE = 0x84
 
+class LedTarget(IntEnum):
+    """LED target types for the SET_LED_COLOR command."""
+
+    LED_RING_ALL    = 0x01
+    LED_RING_SINGLE = 0x02
+
+LED_RING_COUNT = 18
 
 class BridgeClient:
     """Client class to interact with the STM32 Chromapi Motherboard."""
 
-    def __init__(self, port: str = '/dev/ttyS0', baudrate: int = 115200, timeout: float = 1.0) -> None:
+    def __init__(self, port: str = '/dev/ttyS0', baudrate: int = 1000000, timeout: float = 1.0) -> None:
         """Initialize the BridgeClient with serial port parameters."""
         self.port: str = port
         self.baudrate: int = baudrate
@@ -132,9 +139,35 @@ class BridgeClient:
             self.logger.warning(f"Ping failed: {e}")
             return False
 
-    def set_led_color(self, r: int, g: int, b: int) -> bool:
-        """Set the RGB LEDs color on the motherboard."""
-        self._send_frame(Command.SET_LED_COLOR, bytes([r & 0xFF, g & 0xFF, b & 0xFF]))
+    def set_led_color(self, index: int, r: int, g: int, b: int) -> bool:
+        """Set a single ring LED (0-17)."""
+        if not (0 <= index < LED_RING_COUNT):
+            raise ValueError(f"index must be in [0, {LED_RING_COUNT - 1}]")
+        self._send_frame(
+            Command.SET_LED_COLOR,
+            bytes([LedTarget.LED_RING_SINGLE, index & 0xFF, r & 0xFF, g & 0xFF, b & 0xFF]),
+        )
+        try:
+            cmd, _ = self._read_reply()
+            return cmd == Response.OK
+        except Exception:
+            return False
+
+    def set_led_color_all(self, r: int, g: int, b: int) -> bool:
+        """Set all 18 ring LEDs to a single color."""
+        self._send_frame(Command.SET_LED_COLOR, bytes([LedTarget.LED_RING_ALL, r & 0xFF, g & 0xFF, b & 0xFF]))
+        try:
+            cmd, _ = self._read_reply()
+            return cmd == Response.OK
+        except Exception:
+            return False
+
+    def set_led_color_bulk(self, colors: List[Tuple[int, int, int]]) -> bool:
+        """Set all 18 ring LEDs individually in a single UART frame."""
+        if len(colors) != LED_RING_COUNT:
+            raise ValueError(f"Expected exactly {LED_RING_COUNT} (r,g,b) tuples.")
+        payload = b''.join(bytes([r & 0xFF, g & 0xFF, b & 0xFF]) for r, g, b in colors)
+        self._send_frame(Command.SET_LED_RING_BULK, payload)
         try:
             cmd, _ = self._read_reply()
             return cmd == Response.OK
