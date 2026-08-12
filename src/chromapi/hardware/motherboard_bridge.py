@@ -98,9 +98,10 @@ class BridgeClient:
         if self.serial is None:
             raise ConnectionError("Serial port is not initialized.")
 
-        old_timeout = self.serial.timeout
+        has_timeout_attr = hasattr(self.serial, 'timeout')
+        old_timeout = getattr(self.serial, 'timeout', None)
 
-        if timeout is not None:
+        if timeout is not None and has_timeout_attr:
             self.serial.timeout = timeout
         try:
             sync_state = 0
@@ -129,9 +130,10 @@ class BridgeClient:
             if rest[-1] != self._calc_crc(length_byte + rest[:-1]):
                 raise ValueError(f"CRC mismatch. Received: {rest[-1]}, Computed: {self._calc_crc(length_byte + rest[:-1])}")
             return cmd, payload
-            
+
         finally:
-            self.serial.timeout = old_timeout
+            if has_timeout_attr and old_timeout is not None:
+                self.serial.timeout = old_timeout
 
     def ping(self) -> bool:
         """Send a ping command to verify STM32 connectivity."""
@@ -217,11 +219,11 @@ class BridgeClient:
         self._send_frame(Command.STATE_FEEDBACK)
         try:
             cmd, payload = self._read_reply()
-            if cmd != Response.STATE_SNAPSHOT or len(payload) != 121:
+            if cmd != Response.STATE_SNAPSHOT or len(payload) != 129:
                 self.logger.warning(f"Unexpected state snapshot size: {len(payload)} bytes")
                 return None
 
-            data = struct.unpack('<iii' + ('HhhBB' * 12) + 'hhhhhhB', payload)
+            data = struct.unpack('<iii' + ('HhhBB' * 12) + 'hhhhhhhhhhB', payload)
 
             return {
                 "power": {
@@ -243,12 +245,13 @@ class BridgeClient:
                 "imu": {
                     "acc_mps2": [data[63] / 100.0,  data[64] / 100.0,  data[65] / 100.0],
                     "gyro_rps": [data[66] / 1000.0, data[67] / 1000.0, data[68] / 1000.0],
+                    "quat":     [data[69] / 32767.0, data[70] / 32767.0, data[71] / 32767.0, data[72] / 32767.0],
                 },
                 "switches": {
-                    "TL": bool(data[69] & 0x01),
-                    "TR": bool(data[69] & 0x02),
-                    "BL": bool(data[69] & 0x04),
-                    "BR": bool(data[69] & 0x08),
+                    "TL": bool(data[73] & 0x01),
+                    "TR": bool(data[73] & 0x02),
+                    "BL": bool(data[73] & 0x04),
+                    "BR": bool(data[73] & 0x08),
                 },
             }
 
