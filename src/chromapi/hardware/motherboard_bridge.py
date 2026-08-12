@@ -93,38 +93,45 @@ class BridgeClient:
         self.serial.write(frame)
         self.serial.flush()
 
-    def _read_reply(self) -> Tuple[int, bytes]:
+    def _read_reply(self, timeout: Optional[float] = None) -> Tuple[int, bytes]:
         """Read and parse an incoming reply frame from UART."""
         if self.serial is None:
             raise ConnectionError("Serial port is not initialized.")
 
-        sync_state = 0
-        while sync_state < 2:
-            b = self.serial.read(1)
-            if not b:
-                raise TimeoutError("Timeout waiting for reply header.")
-            if sync_state == 0 and b[0] == BRIDGE_SYNC_1:
-                sync_state = 1
-            elif sync_state == 1 and b[0] == BRIDGE_SYNC_2:
-                sync_state = 2
-            else:
-                sync_state = 0
+        old_timeout = self.serial.timeout
 
-        length_byte = self.serial.read(1)
-        if not length_byte:
-            raise TimeoutError("Timeout reading LEN.")
+        if timeout is not None:
+            self.serial.timeout = timeout
+        try:
+            sync_state = 0
+            while sync_state < 2:
+                b = self.serial.read(1)
+                if not b:
+                    raise TimeoutError("Timeout waiting for reply header.")
+                if sync_state == 0 and b[0] == BRIDGE_SYNC_1:
+                    sync_state = 1
+                elif sync_state == 1 and b[0] == BRIDGE_SYNC_2:
+                    sync_state = 2
+                else:
+                    sync_state = 0
 
-        rest = self.serial.read(length_byte[0] + 1)
-        if len(rest) != length_byte[0] + 1:
-            raise TimeoutError("Truncated frame.")
+            length_byte = self.serial.read(1)
+            if not length_byte:
+                raise TimeoutError("Timeout reading LEN.")
 
-        cmd = rest[0]
-        payload = rest[1:-1]
+            rest = self.serial.read(length_byte[0] + 1)
+            if len(rest) != length_byte[0] + 1:
+                raise TimeoutError("Truncated frame.")
 
-        if rest[-1] != self._calc_crc(length_byte + rest[:-1]):
-            raise ValueError(f"CRC mismatch. Received: {rest[-1]}, Computed: {self._calc_crc(length_byte + rest[:-1])}")
+            cmd = rest[0]
+            payload = rest[1:-1]
 
-        return cmd, payload
+            if rest[-1] != self._calc_crc(length_byte + rest[:-1]):
+                raise ValueError(f"CRC mismatch. Received: {rest[-1]}, Computed: {self._calc_crc(length_byte + rest[:-1])}")
+            return cmd, payload
+            
+        finally:
+            self.serial.timeout = old_timeout
 
     def ping(self) -> bool:
         """Send a ping command to verify STM32 connectivity."""
@@ -196,7 +203,7 @@ class BridgeClient:
             raise ValueError("Expected exactly 12 raw positions (pad with 0 if unused).")
         self._send_frame(Command.SET_POSITIONS, struct.pack('<12H', *raw_steps))
         try:
-            cmd, _ = self._read_reply()
+            cmd, _ = self._read_reply(timeout=0.5)
             return cmd == Response.OK
         except Exception as e:
             self.logger.warning(f"set_positions error: {e}")
