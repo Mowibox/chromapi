@@ -16,11 +16,11 @@ def run_diagnostics() -> None:
     print(" CHROMAPI HARDWARE DIAGNOSTIC TOOL")
     print("====================================================\n")
 
-    bridge = BridgeClient(port='/dev/ttyS0', baudrate=1000000)
+    bridge = BridgeClient(port='/dev/ttyAMA0', baudrate=1000000)
     
     print("[*] Testing UART Bridge Connection...")
     if not bridge.connect():
-        print("    [FAIL] Cannot open serial port /dev/ttyS0.")
+        print("    [FAIL] Cannot open serial port /dev/ttyAMA0.")
         return
     
     if bridge.ping():
