@@ -12,7 +12,7 @@ Chromapi is a 4-legged robot project on which I'm working by my own.
 ![Stars](https://img.shields.io/github/stars/Mowibox/chromapi?style=social)
 
 <p align="center">
-  <img alt="chromapi" src="./assets/chromapi.png"/>
+  <img alt="chromapi" src="./assets/chromapi.gif"/>
 </p>
 
 ## Getting started
