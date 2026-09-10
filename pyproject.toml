@@ -88,6 +88,9 @@ ignore = [
     "D213",
 ]
 
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.ruff.lint.per-file-ignores]
 "src/chromapi/utils/*.py" = ["D"]
 "src/chromapi/hardware/test.py" = ["D"]
