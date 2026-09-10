@@ -54,7 +54,7 @@ def _resample_to(samples: npt.NDArray[np.float32], orig_rate: int, target_rate: 
         return samples
     divisor = gcd(orig_rate, target_rate)
     up, down = target_rate // divisor, orig_rate // divisor
-    return resample_poly(samples, up, down, axis=0).astype(np.float32)
+    return np.asarray(resample_poly(samples, up, down, axis=0), dtype=np.float32)
 
 
 def _decode_wav(path: Union[str, Path], volume: float) -> Optional[Any]:
@@ -197,7 +197,7 @@ def _match_channels(samples: npt.NDArray[np.float32], n_channels: int, target_ch
         mono = samples.reshape(-1, 1) if samples.ndim == 1 else samples
         return np.tile(mono, (1, target_channels)).astype(np.float32)
     if target_channels == 1 and n_channels > 1:
-        return samples.mean(axis=1).astype(np.float32)
+        return np.asarray(samples.mean(axis=1), dtype=np.float32)
     logger.warning(
         "_match_channels: cannot adapt %d-channel audio to %d channels - playing as-is",
         n_channels,
@@ -271,6 +271,7 @@ class PersistentAudioOutput:
         if decoded is None:
             return False
         samples, sample_rate, n_channels = decoded
+        assert self.samplerate is not None
         if sample_rate != self.samplerate:
             try:
                 samples = _resample_to(samples, sample_rate, self.samplerate)
