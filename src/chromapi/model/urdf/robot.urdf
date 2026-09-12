@@ -5,13 +5,13 @@
   <!-- Link chassis_assembly -->
   <link name="chassis_assembly">
     <inertial>
-      <origin xyz="0.0510886 0.0173608 0.0348428" rpy="0 0 0"/>
+      <origin xyz="0.0294284 -0.0599358 -0.0499507" rpy="0 0 0"/>
       <mass value="0.750607"/>
-      <inertia ixx="0.0026081" ixy="-1.6484e-08" ixz="-1.07459e-07" iyy="0.00155748" iyz="1.65499e-05" izz="0.00317391"/>
+      <inertia ixx="0.0026089" ixy="7.74235e-07" ixz="3.53203e-07" iyy="0.00155677" iyz="1.6907e-05" izz="0.00317429"/>
     </inertial>
     <!-- Part vis_1__corps1 -->
     <visual>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1.stl"/>
       </geometry>
@@ -20,14 +20,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part power_switch -->
     <visual>
-      <origin xyz="0.0501841 0.0918438 0.0560005" rpy="-1.5708 -1.5708 0"/>
+      <origin xyz="0.0285511 0.0145724 -0.0287689" rpy="-1.5708 -1.5708 0"/>
       <geometry>
         <mesh filename="package://assets/power_switch.stl"/>
       </geometry>
@@ -36,14 +36,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0501841 0.0918438 0.0560005" rpy="-1.5708 -1.5708 0"/>
+      <origin xyz="0.0285511 0.0145724 -0.0287689" rpy="-1.5708 -1.5708 0"/>
       <geometry>
         <mesh filename="package://assets/power_switch.stl"/>
       </geometry>
     </collision>
     <!-- Part corps14 -->
     <visual>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/corps14.stl"/>
       </geometry>
@@ -52,14 +52,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/corps14.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1 -->
     <visual>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
@@ -68,14 +68,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part speaker -->
     <visual>
-      <origin xyz="0.0361841 -0.00237623 0.0846744" rpy="1.5708 -0 0"/>
+      <origin xyz="0.0145511 -0.0796476 -9.4969e-05" rpy="1.5708 -0 0"/>
       <geometry>
         <mesh filename="package://assets/speaker.stl"/>
       </geometry>
@@ -84,14 +84,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0361841 -0.00237623 0.0846744" rpy="1.5708 -0 0"/>
+      <origin xyz="0.0145511 -0.0796476 -9.4969e-05" rpy="1.5708 -0 0"/>
       <geometry>
         <mesh filename="package://assets/speaker.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_1 -->
     <visual>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1_1.stl"/>
       </geometry>
@@ -100,14 +100,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1_1.stl"/>
       </geometry>
     </collision>
     <!-- Part composant4_1__corps1 -->
     <visual>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
@@ -116,14 +116,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_1 -->
     <visual>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1_1.stl"/>
       </geometry>
@@ -132,14 +132,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1_1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_2 -->
     <visual>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1.stl"/>
       </geometry>
@@ -148,14 +148,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_1_2 -->
     <visual>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1_1.stl"/>
       </geometry>
@@ -164,14 +164,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1_1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_1_2 -->
     <visual>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1_1.stl"/>
       </geometry>
@@ -180,14 +180,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1_1.stl"/>
       </geometry>
     </collision>
     <!-- Part composant4_1__corps1_2 -->
     <visual>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
@@ -196,14 +196,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part robot_case_bottom -->
     <visual>
-      <origin xyz="0.0501841 0.0131238 0" rpy="0 -0 0"/>
+      <origin xyz="0.0285511 -0.0641476 -0.0847694" rpy="0 -0 0"/>
       <geometry>
         <mesh filename="package://assets/robot_case_bottom.stl"/>
       </geometry>
@@ -212,14 +212,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0501841 0.0131238 0" rpy="0 -0 0"/>
+      <origin xyz="0.0285511 -0.0641476 -0.0847694" rpy="0 -0 0"/>
       <geometry>
         <mesh filename="package://assets/robot_case_bottom.stl"/>
       </geometry>
     </collision>
     <!-- Part chromapi_motherboard -->
     <visual>
-      <origin xyz="0.0499041 0.0129238 0.053404" rpy="0 -0 1.5708"/>
+      <origin xyz="0.0282711 -0.0643476 -0.0313654" rpy="0 -0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/chromapi_motherboard.stl"/>
       </geometry>
@@ -228,14 +228,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0499041 0.0129238 0.053404" rpy="0 -0 1.5708"/>
+      <origin xyz="0.0282711 -0.0643476 -0.0313654" rpy="0 -0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/chromapi_motherboard.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_2 -->
     <visual>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
@@ -244,14 +244,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_1_3 -->
     <visual>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1_1.stl"/>
       </geometry>
@@ -260,14 +260,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1_1.stl"/>
       </geometry>
     </collision>
     <!-- Part rpi_battery_bracket -->
     <visual>
-      <origin xyz="0.0523941 0.0196901 0.005" rpy="0 -0 3.14159"/>
+      <origin xyz="0.0307611 -0.0575813 -0.0797694" rpy="0 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/rpi_battery_bracket.stl"/>
       </geometry>
@@ -276,14 +276,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0523941 0.0196901 0.005" rpy="0 -0 3.14159"/>
+      <origin xyz="0.0307611 -0.0575813 -0.0797694" rpy="0 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/rpi_battery_bracket.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1 -->
     <visual>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
@@ -292,14 +292,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_3 -->
     <visual>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
@@ -308,14 +308,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_2 -->
     <visual>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
@@ -324,14 +324,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_3 -->
     <visual>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
@@ -340,14 +340,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_1_3 -->
     <visual>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1_1.stl"/>
       </geometry>
@@ -356,14 +356,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1_1.stl"/>
       </geometry>
     </collision>
     <!-- Part fan_nf_a4x10 -->
     <visual>
-      <origin xyz="0.0823841 -0.00262623 0.052" rpy="0 -0 -1.5708"/>
+      <origin xyz="0.0607511 -0.0798976 -0.0327694" rpy="0 -0 -1.5708"/>
       <geometry>
         <mesh filename="package://assets/fan_nf_a4x10.stl"/>
       </geometry>
@@ -372,14 +372,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0823841 -0.00262623 0.052" rpy="0 -0 -1.5708"/>
+      <origin xyz="0.0607511 -0.0798976 -0.0327694" rpy="0 -0 -1.5708"/>
       <geometry>
         <mesh filename="package://assets/fan_nf_a4x10.stl"/>
       </geometry>
     </collision>
     <!-- Part raspberry_pi_4_model_b -->
     <visual>
-      <origin xyz="0.0523941 0.0238863 0.03391" rpy="1.5708 -0 1.5708"/>
+      <origin xyz="0.0307611 -0.0533851 -0.0508594" rpy="1.5708 -0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/raspberry_pi_4_model_b.stl"/>
       </geometry>
@@ -388,14 +388,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0523941 0.0238863 0.03391" rpy="1.5708 -0 1.5708"/>
+      <origin xyz="0.0307611 -0.0533851 -0.0508594" rpy="1.5708 -0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/raspberry_pi_4_model_b.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_3 -->
     <visual>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1.stl"/>
       </geometry>
@@ -404,14 +404,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part ws2812b_cob_pixel_ring_27mm -->
     <visual>
-      <origin xyz="0.0503018 -0.0735262 0.0427998" rpy="1.5708 -0 0"/>
+      <origin xyz="0.0286688 -0.150798 -0.0419696" rpy="1.5708 -0 0"/>
       <geometry>
         <mesh filename="package://assets/ws2812b_cob_pixel_ring_27mm.stl"/>
       </geometry>
@@ -420,14 +420,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0503018 -0.0735262 0.0427998" rpy="1.5708 -0 0"/>
+      <origin xyz="0.0286688 -0.150798 -0.0419696" rpy="1.5708 -0 0"/>
       <geometry>
         <mesh filename="package://assets/ws2812b_cob_pixel_ring_27mm.stl"/>
       </geometry>
     </collision>
     <!-- Part corps14_2 -->
     <visual>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/corps14.stl"/>
       </geometry>
@@ -436,14 +436,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/corps14.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_4 -->
     <visual>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
@@ -452,14 +452,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_4 -->
     <visual>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
@@ -468,14 +468,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_4 -->
     <visual>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1.stl"/>
       </geometry>
@@ -484,14 +484,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 0.0809238 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 0.00365239 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part composant4_1__corps1_3 -->
     <visual>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
@@ -500,14 +500,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_1_4 -->
     <visual>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1_1.stl"/>
       </geometry>
@@ -516,14 +516,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1_1.stl"/>
       </geometry>
     </collision>
     <!-- Part composant4_1__corps1_4 -->
     <visual>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
@@ -532,14 +532,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part corps14_3 -->
     <visual>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/corps14.stl"/>
       </geometry>
@@ -548,30 +548,30 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 0.0809238 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 0.00365239 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/corps14.stl"/>
       </geometry>
     </collision>
     <!-- Part camera_imx219_d160 -->
     <visual>
-      <origin xyz="0.0503018 -0.0661262 0.0427998" rpy="1.5708 -0 0"/>
+      <origin xyz="0.0286688 -0.143398 -0.0419696" rpy="1.5708 -0 0"/>
       <geometry>
         <mesh filename="package://assets/camera_imx219_d160.stl"/>
       </geometry>
       <material name="camera_imx219_d160_material">
-        <color rgba="0.647059 0.647059 0.647059 1"/>
+        <color rgba="0.17254902 0.164705882 0.149019608 1"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0503018 -0.0661262 0.0427998" rpy="1.5708 -0 0"/>
+      <origin xyz="0.0286688 -0.143398 -0.0419696" rpy="1.5708 -0 0"/>
       <geometry>
         <mesh filename="package://assets/camera_imx219_d160.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_1_4 -->
     <visual>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1_1.stl"/>
       </geometry>
@@ -580,14 +580,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.103384 -0.0546762 0.0209" rpy="3.14159 -0 0"/>
+      <origin xyz="0.0817511 -0.131948 -0.0638694" rpy="3.14159 -0 0"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1_1.stl"/>
       </geometry>
     </collision>
     <!-- Part robot_case_top -->
     <visual>
-      <origin xyz="0.0501841 0.0131238 0.0927994" rpy="0 -0 0"/>
+      <origin xyz="0.0285511 -0.0641476 0.00803003" rpy="0 -0 0"/>
       <geometry>
         <mesh filename="package://assets/robot_case_top.stl"/>
       </geometry>
@@ -596,14 +596,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0501841 0.0131238 0.0927994" rpy="0 -0 0"/>
+      <origin xyz="0.0285511 -0.0641476 0.00803003" rpy="0 -0 0"/>
       <geometry>
         <mesh filename="package://assets/robot_case_top.stl"/>
       </geometry>
     </collision>
     <!-- Part corps14_4 -->
     <visual>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/corps14.stl"/>
       </geometry>
@@ -612,14 +612,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00301594 -0.0546762 0.0209" rpy="3.14159 -0 3.14159"/>
+      <origin xyz="-0.0246489 -0.131948 -0.0638694" rpy="3.14159 -0 3.14159"/>
       <geometry>
         <mesh filename="package://assets/corps14.stl"/>
       </geometry>
     </collision>
     <!-- Part battery_holder -->
     <visual>
-      <origin xyz="0.0523941 0.0283863 0.028" rpy="-3.14159 -0 1.5708"/>
+      <origin xyz="0.0307611 -0.0488851 -0.0567694" rpy="-3.14159 -0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/battery_holder.stl"/>
       </geometry>
@@ -628,14 +628,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0523941 0.0283863 0.028" rpy="-3.14159 -0 1.5708"/>
+      <origin xyz="0.0307611 -0.0488851 -0.0567694" rpy="-3.14159 -0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/battery_holder.stl"/>
       </geometry>
     </collision>
     <!-- Part 18650_li_ion_battery -->
     <visual>
-      <origin xyz="0.0424691 -0.00603373 0.01755" rpy="-1.5708 -1.5708 0"/>
+      <origin xyz="0.0208361 -0.0833051 -0.0672194" rpy="-1.5708 -1.5708 0"/>
       <geometry>
         <mesh filename="package://assets/18650_li_ion_battery.stl"/>
       </geometry>
@@ -644,14 +644,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0424691 -0.00603373 0.01755" rpy="-1.5708 -1.5708 0"/>
+      <origin xyz="0.0208361 -0.0833051 -0.0672194" rpy="-1.5708 -1.5708 0"/>
       <geometry>
         <mesh filename="package://assets/18650_li_ion_battery.stl"/>
       </geometry>
     </collision>
     <!-- Part 18650_li_ion_battery_2 -->
     <visual>
-      <origin xyz="0.0623191 0.0628063 0.01755" rpy="1.5708 1.5708 0"/>
+      <origin xyz="0.0406861 -0.0144651 -0.0672194" rpy="1.5708 1.5708 0"/>
       <geometry>
         <mesh filename="package://assets/18650_li_ion_battery.stl"/>
       </geometry>
@@ -660,7 +660,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0623191 0.0628063 0.01755" rpy="1.5708 1.5708 0"/>
+      <origin xyz="0.0406861 -0.0144651 -0.0672194" rpy="1.5708 1.5708 0"/>
       <geometry>
         <mesh filename="package://assets/18650_li_ion_battery.stl"/>
       </geometry>
@@ -676,7 +676,7 @@
     </inertial>
   </link>
   <joint name="imu_frame" type="fixed">
-    <origin xyz="0.0499017 0.0129279 0.052794" rpy="0 -0 -1.5708"/>
+    <origin xyz="0.0282687 -0.0643435 -0.0319754" rpy="0 -0 -1.5708"/>
     <parent link="chassis_assembly"/>
     <child link="imu"/>
     <axis xyz="0 0 0"/>
@@ -691,7 +691,7 @@
     </inertial>
   </link>
   <joint name="camera_frame" type="fixed">
-    <origin xyz="0.0503018 -0.065078 0.0427998" rpy="-3.14159 -1.5708 0"/>
+    <origin xyz="0.0286688 -0.142349 -0.0419696" rpy="-3.14159 -1.5708 0"/>
     <parent link="chassis_assembly"/>
     <child link="camera"/>
     <axis xyz="0 0 0"/>
@@ -873,7 +873,7 @@
     </inertial>
     <!-- Part corps14_6 -->
     <visual>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/corps14.stl"/>
       </geometry>
@@ -882,7 +882,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/corps14.stl"/>
       </geometry>
@@ -921,7 +921,7 @@
     </collision>
     <!-- Part vis_1__corps1_1_6 -->
     <visual>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1_1.stl"/>
       </geometry>
@@ -930,7 +930,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1_1.stl"/>
       </geometry>
@@ -953,7 +953,7 @@
     </collision>
     <!-- Part vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1_6 -->
     <visual>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
@@ -962,14 +962,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/vis_a_tete_tronconique_jis_b_1111_m3x4_h_acier_inoxydable_a2_standard_v1_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part vis_1__corps1_6 -->
     <visual>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1.stl"/>
       </geometry>
@@ -978,14 +978,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/vis_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_1_6 -->
     <visual>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1_1.stl"/>
       </geometry>
@@ -994,14 +994,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1_1.stl"/>
       </geometry>
     </collision>
     <!-- Part composant4_1__corps1_6 -->
     <visual>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
@@ -1010,14 +1010,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/composant4_1__corps1.stl"/>
       </geometry>
     </collision>
     <!-- Part connector_f_1__corps1_6 -->
     <visual>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
@@ -1026,7 +1026,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-1e-05 0.055871 0.015415" rpy="0 -0 1.5708"/>
+      <origin xyz="-1e-05 0.055871 0.015415" rpy="-0 0 1.5708"/>
       <geometry>
         <mesh filename="package://assets/connector_f_1__corps1.stl"/>
       </geometry>
@@ -1057,7 +1057,7 @@
     </collision>
     <!-- Part left_tibia -->
     <visual>
-      <origin xyz="-0 0.0122398 0.015315" rpy="0 -0 -1.5708"/>
+      <origin xyz="0 0.0122398 0.015315" rpy="0 -0 -1.5708"/>
       <geometry>
         <mesh filename="package://assets/left_tibia.stl"/>
       </geometry>
@@ -1066,14 +1066,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0 0.0122398 0.015315" rpy="0 -0 -1.5708"/>
+      <origin xyz="0 0.0122398 0.015315" rpy="0 -0 -1.5708"/>
       <geometry>
         <mesh filename="package://assets/left_tibia.stl"/>
       </geometry>
     </collision>
     <!-- Part composant2_1__corps1_3 -->
     <visual>
-      <origin xyz="-0.00883883 0.00883883 0.0146" rpy="0 -0 -0.785398"/>
+      <origin xyz="-0.00883883 0.00883883 0.0146" rpy="-0 -0 -0.785398"/>
       <geometry>
         <mesh filename="package://assets/composant2_1__corps1.stl"/>
       </geometry>
@@ -1082,7 +1082,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.00883883 0.00883883 0.0146" rpy="0 -0 -0.785398"/>
+      <origin xyz="-0.00883883 0.00883883 0.0146" rpy="-0 -0 -0.785398"/>
       <geometry>
         <mesh filename="package://assets/composant2_1__corps1.stl"/>
       </geometry>
@@ -1105,7 +1105,7 @@
     </collision>
     <!-- Part foot -->
     <visual>
-      <origin xyz="-0.0480926 -0.0898756 0.0152551" rpy="-2.26893 -1.57079 1.4e-10"/>
+      <origin xyz="-0.0480926 -0.0898756 0.0152551" rpy="-2.26893 -1.57079 1.23e-10"/>
       <geometry>
         <mesh filename="package://assets/foot.stl"/>
       </geometry>
@@ -1114,7 +1114,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.0480926 -0.0898756 0.0152551" rpy="-2.26893 -1.57079 1.4e-10"/>
+      <origin xyz="-0.0480926 -0.0898756 0.0152551" rpy="-2.26893 -1.57079 1.23e-10"/>
       <geometry>
         <mesh filename="package://assets/foot.stl"/>
       </geometry>
@@ -1130,18 +1130,18 @@
     </inertial>
   </link>
   <joint name="tl_foot_frame" type="fixed">
-    <origin xyz="-0.0537106 -0.0965708 0.0152551" rpy="-2.26893 -1.57079 1.4e-10"/>
+    <origin xyz="-0.0537106 -0.0965708 0.0152551" rpy="-2.26893 -1.57079 1.23e-10"/>
     <parent link="left_tibia_assembly"/>
     <child link="tl_foot"/>
     <axis xyz="0 0 0"/>
   </joint>
   <!-- Joint from left_femur_assembly to left_tibia_assembly -->
   <joint name="tl_3" type="revolute">
-    <origin xyz="-1e-05 0.068371 0.000815" rpy="-0 -0 -3.14159"/>
+    <origin xyz="-1e-05 0.068371 0.000815" rpy="0 0 -3.14159"/>
     <parent link="left_femur_assembly"/>
     <child link="left_tibia_assembly"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" velocity="10" lower="-1.74533" upper="1.5708"/>
+    <limit effort="10" velocity="10" lower="-1.5708" upper="1.5708"/>
   </joint>
   <!-- Joint from left_coxa_assembly to left_femur_assembly -->
   <joint name="tl_2" type="revolute">
@@ -1149,11 +1149,11 @@
     <parent link="left_coxa_assembly"/>
     <child link="left_femur_assembly"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" velocity="10" lower="-1.5708" upper="1.74533"/>
+    <limit effort="10" velocity="10" lower="-1.5708" upper="1.5708"/>
   </joint>
   <!-- Joint from chassis_assembly to left_coxa_assembly -->
   <joint name="tl_1" type="revolute">
-    <origin xyz="0.115884 -0.0546762 0.0355" rpy="-3.14159 0 -3.14159"/>
+    <origin xyz="0.0942511 -0.131948 -0.0492694" rpy="-3.14159 0 -3.14159"/>
     <parent link="chassis_assembly"/>
     <child link="left_coxa_assembly"/>
     <axis xyz="0 0 1"/>
@@ -1604,7 +1604,7 @@
     <parent link="left_femur_assembly_2"/>
     <child link="left_tibia_assembly_2"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" velocity="10" lower="-1.74533" upper="1.5708"/>
+    <limit effort="10" velocity="10" lower="-1.5708" upper="1.5708"/>
   </joint>
   <!-- Joint from left_coxa_assembly_2 to left_femur_assembly_2 -->
   <joint name="bl_2" type="revolute">
@@ -1612,11 +1612,11 @@
     <parent link="left_coxa_assembly_2"/>
     <child link="left_femur_assembly_2"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" velocity="10" lower="-1.5708" upper="1.74533"/>
+    <limit effort="10" velocity="10" lower="-1.5708" upper="1.5708"/>
   </joint>
   <!-- Joint from chassis_assembly to left_coxa_assembly_2 -->
   <joint name="bl_1" type="revolute">
-    <origin xyz="0.115884 0.0809238 0.0355" rpy="-3.14159 -0 -3.14159"/>
+    <origin xyz="0.0942511 0.00365239 -0.0492694" rpy="-3.14159 -0 -3.14159"/>
     <parent link="chassis_assembly"/>
     <child link="left_coxa_assembly_2"/>
     <axis xyz="0 0 1"/>
@@ -1711,7 +1711,7 @@
     </collision>
     <!-- Part right_coxa -->
     <visual>
-      <origin xyz="0.0122398 0 -0.015315" rpy="0 -0 -0"/>
+      <origin xyz="0.0122398 -0 -0.015315" rpy="0 -0 -0"/>
       <geometry>
         <mesh filename="package://assets/right_coxa.stl"/>
       </geometry>
@@ -1720,7 +1720,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0122398 0 -0.015315" rpy="0 -0 -0"/>
+      <origin xyz="0.0122398 -0 -0.015315" rpy="0 -0 -0"/>
       <geometry>
         <mesh filename="package://assets/right_coxa.stl"/>
       </geometry>
@@ -2067,7 +2067,7 @@
     <parent link="right_femur_assembly"/>
     <child link="right_tibia_assembly"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" velocity="10" lower="-1.74533" upper="1.5708"/>
+    <limit effort="10" velocity="10" lower="-1.5708" upper="1.5708"/>
   </joint>
   <!-- Joint from right_coxa_assembly to right_femur_assembly -->
   <joint name="br_2" type="revolute">
@@ -2075,11 +2075,11 @@
     <parent link="right_coxa_assembly"/>
     <child link="right_femur_assembly"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" velocity="10" lower="-1.5708" upper="1.74533"/>
+    <limit effort="10" velocity="10" lower="-1.5708" upper="1.5708"/>
   </joint>
   <!-- Joint from chassis_assembly to right_coxa_assembly -->
   <joint name="br_1" type="revolute">
-    <origin xyz="-0.0155159 0.0809238 0.0355" rpy="0 0 0"/>
+    <origin xyz="-0.0371489 0.00365239 -0.0492694" rpy="0 0 0"/>
     <parent link="chassis_assembly"/>
     <child link="right_coxa_assembly"/>
     <axis xyz="0 0 1"/>
@@ -2530,7 +2530,7 @@
     <parent link="right_femur_assembly_2"/>
     <child link="right_tibia_assembly_2"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" velocity="10" lower="-1.74533" upper="1.5708"/>
+    <limit effort="10" velocity="10" lower="-1.5708" upper="1.5708"/>
   </joint>
   <!-- Joint from right_coxa_assembly_2 to right_femur_assembly_2 -->
   <joint name="tr_2" type="revolute">
@@ -2538,11 +2538,11 @@
     <parent link="right_coxa_assembly_2"/>
     <child link="right_femur_assembly_2"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" velocity="10" lower="-1.5708" upper="1.74533"/>
+    <limit effort="10" velocity="10" lower="-1.5708" upper="1.5708"/>
   </joint>
   <!-- Joint from chassis_assembly to right_coxa_assembly_2 -->
   <joint name="tr_1" type="revolute">
-    <origin xyz="-0.0155159 -0.0546762 0.0355" rpy="-0 0 0"/>
+    <origin xyz="-0.0371489 -0.131948 -0.0492694" rpy="-0 0 0"/>
     <parent link="chassis_assembly"/>
     <child link="right_coxa_assembly_2"/>
     <axis xyz="0 0 1"/>
