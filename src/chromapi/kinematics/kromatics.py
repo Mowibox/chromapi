@@ -279,8 +279,7 @@ class Kromatics:
         x_reach: float = _STAND_REACH[0],
         y_reach: float = _STAND_REACH[1],
     ) -> JointDict:
-        """Joint angles for a nominal standing pose.
-        """
+        """Joint angles for a nominal standing pose."""
         key = (height, x_reach, y_reach)
         if key not in self._stand_pose_cache:
             targets = self.stance_targets(height, x_reach, y_reach)
@@ -301,8 +300,7 @@ class Kromatics:
         x_reach: float = _REST_REACH[0],
         y_reach: float = _REST_REACH[1],
     ) -> JointDict:
-        """Joint angles for a rest pose.
-        """
+        """Joint angles for a rest pose."""
         return self.default_stand_pose(height=height, x_reach=x_reach, y_reach=y_reach)
 
     # -- analytical (closed-form) IK ----------------------------------------------------
