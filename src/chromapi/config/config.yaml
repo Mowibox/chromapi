@@ -35,3 +35,53 @@ camera:
   - 640
   - 480
   rms_error: 0.2437574021099268
+
+servos:
+  id_map:
+    tl_1: 1
+    tl_2: 2
+    tl_3: 3
+    bl_1: 4
+    bl_2: 5
+    bl_3: 6
+    br_1: 7
+    br_2: 8
+    br_3: 9
+    tr_1: 10
+    tr_2: 11
+    tr_3: 12
+  # Direction multiplier (+1/-1) applied when converting radians -> raw steps, to
+  # absorb any servo mounted as a mirror image of the URDF's assumed orientation.
+  sign:
+    tl_1: -1
+    tl_2: -1
+    tl_3: -1
+    tr_1: 1
+    tr_2: 1
+    tr_3: 1
+    bl_1: -1
+    bl_2: -1
+    bl_3: -1
+    br_1: 1
+    br_2: 1
+    br_3: 1
+  # Raw-step offset added after scaling, to align the servo's own internal zero with the kinematic q=0.
+  zero_offset_steps:
+    tl_1: 0
+    tl_2: 0
+    tl_3: 0
+    tr_1: 0
+    tr_2: 0
+    tr_3: 0
+    bl_1: 0
+    bl_2: 0
+    bl_3: 0
+    br_1: 0
+    br_2: 0
+    br_3: 0
+
+control:
+  loop_hz: 50.0
+  wake_up_duration_s: 2.5
+  rest_duration_s: 2.0
+  approach_duration_s: 2.0

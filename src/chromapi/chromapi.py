@@ -265,6 +265,7 @@ class MuJoCoBackend(RobotBackend):
 
         Args:
             mjcf_path: Path to ``model/mjcf/scene.xml`` 
+            realtime: If True, steps the simulation in real-time. If False, steps as fast as possible.
             launch_viewer: If True, opens an interactive ``mujoco.viewer`` window.
             key_callback: Receives a raw GLFW keycode on every keypress in
             the viewer window for teleop use.
@@ -414,7 +415,7 @@ class MuJoCoBackend(RobotBackend):
         return False
 
     def _set_led_ring_rgb(self, rgb: npt.NDArray[np.float64]) -> None:
-        """Apply an (r, g, b) triplet (0-255 scale) to the ring material"""
+        """Apply an (r, g, b) triplet (0-255 scale) to the ring material."""
         if self._led_ring_material_id < 0:
             return
         peak = float(np.max(rgb))
@@ -464,8 +465,7 @@ class MotorCommand:
     target_angles: Dict[str, float]
 
 class Move(ABC):
-    """A stateful behavior driving joint targets on every control-loop tick.
-    """
+    """A stateful behavior driving joint targets on every control-loop tick."""
 
     @abstractmethod
     def step(self, state: RobotState, command: MotorCommand, dt: float) -> None:
@@ -812,7 +812,7 @@ class Chromapi:
             duration: Transition time, in seconds.
             reference_height: Stance height for the default footprint, in meters.
             x_reach: Footprint half-width along chassis X for the same default footprint.
-                y_reach: Footprint half-width along chassis Y for the same default footprint.
+            y_reach: Footprint half-width along chassis Y for the same default footprint.
 
         Returns:
             True if the target pose was reachable by all 4 legs (the transition is still
