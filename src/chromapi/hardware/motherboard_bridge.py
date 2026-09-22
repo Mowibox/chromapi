@@ -6,6 +6,7 @@ using a custom protocol.
 
 import logging
 import struct
+import time
 from enum import IntEnum
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -13,6 +14,9 @@ import serial
 
 BRIDGE_SYNC_1 = 0x55
 BRIDGE_SYNC_2 = 0xAA
+
+# Reply timeout for the two hot-path calls (get_state()/set_positions())
+_HOT_PATH_TIMEOUT_S = 0.05
 
 
 class Command(IntEnum):
@@ -89,24 +93,31 @@ class BridgeClient:
         length_byte = len(payload) + 1
         crc_data = bytes([length_byte, cmd]) + payload
         frame = bytes([BRIDGE_SYNC_1, BRIDGE_SYNC_2]) + crc_data + bytes([self._calc_crc(crc_data)])
-
         self.serial.write(frame)
-        self.serial.flush()
 
     def _read_reply(self, timeout: Optional[float] = None) -> Tuple[int, bytes]:
         """Read and parse an incoming reply frame from UART."""
         if self.serial is None:
             raise ConnectionError("Serial port is not initialized.")
+        serial_port = self.serial  
 
-        has_timeout_attr = hasattr(self.serial, 'timeout')
-        old_timeout = getattr(self.serial, 'timeout', None)
+        has_timeout_attr = hasattr(serial_port, 'timeout')
+        old_timeout = getattr(serial_port, 'timeout', None)
+        budget = timeout if timeout is not None else (old_timeout if old_timeout is not None else self.timeout)
+        deadline = time.monotonic() + budget
 
-        if timeout is not None and has_timeout_attr:
-            self.serial.timeout = timeout
+        def _arm_remaining_timeout() -> float:
+            remaining = deadline - time.monotonic()
+            if has_timeout_attr:
+                serial_port.timeout = max(remaining, 0.0)
+            return remaining
+
         try:
             sync_state = 0
             while sync_state < 2:
-                b = self.serial.read(1)
+                if _arm_remaining_timeout() <= 0:
+                    raise TimeoutError("Timeout waiting for reply header.")
+                b = serial_port.read(1)
                 if not b:
                     raise TimeoutError("Timeout waiting for reply header.")
                 if sync_state == 0 and b[0] == BRIDGE_SYNC_1:
@@ -116,11 +127,15 @@ class BridgeClient:
                 else:
                     sync_state = 0
 
-            length_byte = self.serial.read(1)
+            if _arm_remaining_timeout() <= 0:
+                raise TimeoutError("Timeout reading LEN.")
+            length_byte = serial_port.read(1)
             if not length_byte:
                 raise TimeoutError("Timeout reading LEN.")
 
-            rest = self.serial.read(length_byte[0] + 1)
+            if _arm_remaining_timeout() <= 0:
+                raise TimeoutError("Truncated frame.")
+            rest = serial_port.read(length_byte[0] + 1)
             if len(rest) != length_byte[0] + 1:
                 raise TimeoutError("Truncated frame.")
 
@@ -133,7 +148,7 @@ class BridgeClient:
 
         finally:
             if has_timeout_attr and old_timeout is not None:
-                self.serial.timeout = old_timeout
+                serial_port.timeout = old_timeout
 
     def ping(self) -> bool:
         """Send a ping command to verify STM32 connectivity."""
@@ -199,17 +214,59 @@ class BridgeClient:
             self.logger.warning(f"get_power error: {e}")
             return None
 
-    def set_positions(self, raw_steps: List[int]) -> bool:
+    @staticmethod
+    def _decode_state_snapshot(payload: bytes) -> Dict[str, Any]:
+        """Decode a 129-byte STATE_SNAPSHOT payload (shared by get_state() & set_positions())."""
+        data = struct.unpack('<iii' + ('HhhBB' * 12) + 'hhhhhhhhhhB', payload)
+
+        return {
+            "power": {
+                "voltage_V": data[0] / 1_000_000.0,
+                "current_A": data[1] / 1_000_000.0,
+                "power_W":   data[2] / 1_000_000.0,
+            },
+            "servos": [
+                {
+                    "id":     i + 1,
+                    "pos":    data[3 + i * 5],
+                    "speed":  data[4 + i * 5],
+                    "load":   data[5 + i * 5],
+                    "temp_C": data[6 + i * 5],
+                    "volt_V": data[7 + i * 5] / 10.0,
+                }
+                for i in range(12)
+            ],
+            "imu": {
+                "acc_mps2": [data[63] / 100.0,  data[64] / 100.0,  data[65] / 100.0],
+                "gyro_rps": [data[66] / 1000.0, data[67] / 1000.0, data[68] / 1000.0],
+                "quat":     [data[69] / 32767.0, data[70] / 32767.0, data[71] / 32767.0, data[72] / 32767.0],
+            },
+            "switches": {
+                "TL": bool(data[73] & 0x01),
+                "TR": bool(data[73] & 0x02),
+                "BL": bool(data[73] & 0x04),
+                "BR": bool(data[73] & 0x08),
+            },
+        }
+
+    def set_positions(self, raw_steps: List[int]) -> Optional[Dict[str, Any]]:
         """Send target positions to all 12 servomotors."""
         if len(raw_steps) != 12:
             raise ValueError("Expected exactly 12 raw positions (pad with 0 if unused).")
+        if self.serial is None:
+            return None
+        
+        self.serial.reset_input_buffer()
         self._send_frame(Command.SET_POSITIONS, struct.pack('<12H', *raw_steps))
         try:
-            cmd, _ = self._read_reply(timeout=0.5)
-            return cmd == Response.OK
+            cmd, payload = self._read_reply(timeout=_HOT_PATH_TIMEOUT_S)
+            if cmd != Response.STATE_SNAPSHOT or len(payload) != 129:
+                self.logger.warning(f"set_positions: unexpected reply (cmd={cmd}, {len(payload)} bytes)")
+                return None
+            return self._decode_state_snapshot(payload)
         except Exception as e:
             self.logger.warning(f"set_positions error: {e}")
-            return False
+            return None
 
     def get_state(self) -> Optional[Dict[str, Any]]:
         """Retrieve the global hardware state snapshot."""
@@ -218,43 +275,11 @@ class BridgeClient:
         self.serial.reset_input_buffer()
         self._send_frame(Command.STATE_FEEDBACK)
         try:
-            cmd, payload = self._read_reply()
+            cmd, payload = self._read_reply(timeout=_HOT_PATH_TIMEOUT_S)
             if cmd != Response.STATE_SNAPSHOT or len(payload) != 129:
                 self.logger.warning(f"Unexpected state snapshot size: {len(payload)} bytes")
                 return None
-
-            data = struct.unpack('<iii' + ('HhhBB' * 12) + 'hhhhhhhhhhB', payload)
-
-            return {
-                "power": {
-                    "voltage_V": data[0] / 1_000_000.0,
-                    "current_A": data[1] / 1_000_000.0,
-                    "power_W":   data[2] / 1_000_000.0,
-                },
-                "servos": [
-                    {
-                        "id":     i + 1,
-                        "pos":    data[3 + i * 5],
-                        "speed":  data[4 + i * 5],
-                        "load":   data[5 + i * 5],
-                        "temp_C": data[6 + i * 5],
-                        "volt_V": data[7 + i * 5] / 10.0,
-                    }
-                    for i in range(12)
-                ],
-                "imu": {
-                    "acc_mps2": [data[63] / 100.0,  data[64] / 100.0,  data[65] / 100.0],
-                    "gyro_rps": [data[66] / 1000.0, data[67] / 1000.0, data[68] / 1000.0],
-                    "quat":     [data[69] / 32767.0, data[70] / 32767.0, data[71] / 32767.0, data[72] / 32767.0],
-                },
-                "switches": {
-                    "TL": bool(data[73] & 0x01),
-                    "TR": bool(data[73] & 0x02),
-                    "BL": bool(data[73] & 0x04),
-                    "BR": bool(data[73] & 0x08),
-                },
-            }
-
+            return self._decode_state_snapshot(payload)
         except Exception as e:
             self.logger.error(f"get_state error: {e}")
             return None

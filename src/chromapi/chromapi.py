@@ -160,6 +160,7 @@ class HardwareBackend(RobotBackend):
         missing = set(K.JOINT_NAMES) - set(self._id_map)
         if missing:
             raise ValueError(f"servo config is missing joints: {sorted(missing)}")
+        self._cached_snapshot: Optional[Dict[str, Any]] = None
 
     def connect(self) -> bool:
         """Open the UART serial port to the STM32 bridge."""
@@ -189,11 +190,18 @@ class HardwareBackend(RobotBackend):
             if servo_id is None:
                 continue
             raw_steps[servo_id - 1] = self._rad_to_steps(joint, angle)
-        return self._bridge.set_positions(raw_steps)
+        snapshot = self._bridge.set_positions(raw_steps)
+        self._cached_snapshot = snapshot
+        return snapshot is not None
 
     def read_state(self) -> Optional[RobotState]:
-        """Read the STATE_FEEDBACK snapshot and convert it to a :class:`RobotState`."""
-        snapshot = self._bridge.get_state()
+        """Return a :class:`RobotState`."""
+        snapshot: Optional[Dict[str, Any]]
+        if self._cached_snapshot is not None:
+            snapshot = self._cached_snapshot
+            self._cached_snapshot = None
+        else:
+            snapshot = self._bridge.get_state()
         if snapshot is None:
             return None
 
@@ -643,6 +651,7 @@ class Chromapi:
     def _control_loop(self) -> None:
         period = 1.0 / self.loop_hz
         last_tick = time.monotonic()
+        next_deadline = last_tick + period
         while not self._stop_event.is_set():
             if not self.backend.is_alive():
                 logger.info("Backend no longer alive (viewer closed?) - stopping control loop")
@@ -670,13 +679,20 @@ class Chromapi:
             self.backend.send_joint_targets(targets)
 
             elapsed = time.monotonic() - tick_start
-            time.sleep(max(period - elapsed, 0.0))
             if elapsed > 2 * period:
                 logger.warning(
                     "Control loop overrun: tick took %.1f ms (target period %.1f ms)",
                     elapsed * 1000,
                     period * 1000,
                 )
+
+            now = time.monotonic()
+            sleep_for = next_deadline - now
+            if sleep_for > 0:
+                time.sleep(sleep_for)
+            elif sleep_for < -period:
+                next_deadline = now
+            next_deadline += period
 
     # -- state --------------------------------------------------------------------------
 

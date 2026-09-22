@@ -53,7 +53,8 @@ dev = [
 chromapi-diagnostics = "chromapi.utils.hardware_diagnostic:main"
 chromapi-scan-motors = "chromapi.utils.scan_motors:main"
 chromapi-setup-motors = "chromapi.utils.setup_motors:main"
-chromapi-cam-calib = "chromapi.utils.calibrate_camera:main"
+# chromapi-cam-calib = "chromapi.utils.calibrate_camera:main"
+# chromapi-calibrate-servos = "chromapi.utils.calibrate_servo_centers:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

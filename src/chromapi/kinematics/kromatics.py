@@ -109,6 +109,7 @@ class Kromatics:
             self.foot_tasks[leg] = task
 
         self._stand_pose_cache: Dict[Tuple[float, float, float], JointDict] = {}
+        self.last_solve_error_m: float = 0.0
 
     # -- conversions ---------------------------------------------------------------
 
@@ -215,6 +216,7 @@ class Kromatics:
         for leg, target in foot_targets.items():
             achieved = self.robot.get_T_world_frame(FOOT_FRAME_NAMES[leg])[:3, 3]
             max_error = max(max_error, float(np.linalg.norm(achieved - np.asarray(target))))
+        self.last_solve_error_m = max_error
         return q, max_error < _CONVERGENCE_TOL_M
 
     def inverse_kinematics(

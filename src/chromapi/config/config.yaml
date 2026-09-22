@@ -81,7 +81,7 @@ servos:
     br_3: 0
 
 control:
-  loop_hz: 50.0
+  loop_hz: 100.0
   wake_up_duration_s: 2.5
   rest_duration_s: 2.0
   approach_duration_s: 2.0
