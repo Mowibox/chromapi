@@ -59,9 +59,9 @@ DEFAULT_CHROMAPI_SCREAM_PATH = _PACKAGE_DIR / "assets" / "audio" / "chromapi_scr
 
 #: STS3215 magnetic-encoder resolution (steps per revolution) and center step, standard
 #: Feetech convention (see stm32-sts3215-lib's ``sts3215_regs.h``/memory table).
-STS3215_STEPS_PER_REV = 4096
-STS3215_CENTER_STEP = 2048
-_STEPS_PER_RAD = STS3215_STEPS_PER_REV / (2.0 * np.pi)
+STS3215_STEPS_PER_REV = 4096  # [step.rev⁻¹]
+STS3215_CENTER_STEP = 2048  # [step]
+_STEPS_PER_RAD = STS3215_STEPS_PER_REV / (2.0 * np.pi)  # [step.rad⁻¹]
 
 # ========================================================================================
 # Robot state
@@ -70,17 +70,17 @@ _STEPS_PER_RAD = STS3215_STEPS_PER_REV / (2.0 * np.pi)
 class RobotState:
     """A timestamped snapshot of the robot's proprioceptive state."""
 
-    joint_positions: Dict[str, float] = field(default_factory=dict) # in rad
-    joint_velocities: Dict[str, float] = field(default_factory=dict) # in rad/s
-    joint_loads: Dict[str, float] = field(default_factory=dict)
-    imu_quat_wxyz: Tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
-    imu_gyro: Tuple[float, float, float] = (0.0, 0.0, 0.0) # in rad/s, IMU frame
-    imu_accel: Tuple[float, float, float] = (0.0, 0.0, 0.0) # in m/s^2, IMU frame
+    joint_positions: Dict[str, float] = field(default_factory=dict)  # [rad]
+    joint_velocities: Dict[str, float] = field(default_factory=dict)  # [rad.s⁻¹]
+    joint_loads: Dict[str, float] = field(default_factory=dict)  # [0.1 %] of rated torque (raw STS3215 load)
+    imu_quat_wxyz: Tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)  # unit quaternion
+    imu_gyro: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [rad.s⁻¹]
+    imu_accel: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [m.s⁻²]
     foot_contacts: Dict[str, bool] = field(default_factory=dict)
-    voltage_v: float = 0.0
-    current_a: float = 0.0
-    power_w: float = 0.0
-    timestamp: float = 0.0
+    voltage_v: float = 0.0  # [V]
+    current_a: float = 0.0  # [A]
+    power_w: float = 0.0  # [W]
+    timestamp: float = 0.0  # [s]
 
 # ========================================================================================
 # Backend abstraction - real hardware vs MuJoCo, behind one interface
@@ -103,7 +103,7 @@ class RobotBackend(ABC):
 
     @abstractmethod
     def send_joint_targets(self, q: Dict[str, float]) -> bool:
-        """Send target joint angles (radians), keyed by joint name. Returns success."""
+        """Send target joint angles [rad], keyed by joint name. Returns success."""
 
     @abstractmethod
     def read_state(self) -> Optional[RobotState]:
@@ -155,7 +155,7 @@ class HardwareBackend(RobotBackend):
         self._bridge = BridgeClient(port=port, baudrate=baudrate)
         self._id_map: Dict[str, int] = dict(servo_config["id_map"])
         self._sign: Dict[str, int] = dict(servo_config["sign"])
-        self._zero_offset: Dict[str, int] = dict(servo_config["zero_offset_steps"])
+        self._zero_offset: Dict[str, int] = dict(servo_config["zero_offset_steps"])  # [step]
         self._id_to_joint: Dict[int, str] = {v: k for k, v in self._id_map.items()}
         missing = set(K.JOINT_NAMES) - set(self._id_map)
         if missing:
@@ -171,7 +171,7 @@ class HardwareBackend(RobotBackend):
         self._bridge.close()
 
     def _rad_to_steps(self, joint: str, angle_rad: float) -> int:
-        raw = (
+        raw = (  # [step]
             STS3215_CENTER_STEP
             + self._sign[joint] * angle_rad * _STEPS_PER_RAD
             + self._zero_offset[joint]
@@ -179,12 +179,12 @@ class HardwareBackend(RobotBackend):
         return int(np.clip(round(raw), 0, STS3215_STEPS_PER_REV - 1))
 
     def _steps_to_rad(self, joint: str, raw_steps: int) -> float:
-        raw = raw_steps - STS3215_CENTER_STEP - self._zero_offset[joint]
+        raw = raw_steps - STS3215_CENTER_STEP - self._zero_offset[joint]  # [step]
         return self._sign[joint] * raw / _STEPS_PER_RAD
 
     def send_joint_targets(self, q: Dict[str, float]) -> bool:
         """Pack joint angles into the 12-servo raw-step frame and send SET_POSITIONS."""
-        raw_steps = [STS3215_CENTER_STEP] * 12
+        raw_steps = [STS3215_CENTER_STEP] * 12  # [step]
         for joint, angle in q.items():
             servo_id = self._id_map.get(joint)
             if servo_id is None:
@@ -220,9 +220,9 @@ class HardwareBackend(RobotBackend):
 
         quat = snapshot["imu"]["quat"]
         state.imu_quat_wxyz = (quat[0], quat[1], quat[2], quat[3])
-        gyro = snapshot["imu"]["gyro_rps"]
+        gyro = snapshot["imu"]["gyro_rps"]  # [rad.s⁻¹]
         state.imu_gyro = (gyro[0], gyro[1], gyro[2])
-        accel = snapshot["imu"]["acc_mps2"]
+        accel = snapshot["imu"]["acc_mps2"]  # [m.s⁻²]
         state.imu_accel = (accel[0], accel[1], accel[2])
         state.foot_contacts = {
             "tl": snapshot["switches"]["TL"],
@@ -285,7 +285,7 @@ class MuJoCoBackend(RobotBackend):
         self._model = mujoco.MjModel.from_xml_path(str(mjcf_path))
         self._data = mujoco.MjData(self._model)
         self._realtime = realtime
-        self._last_step_time: Optional[float] = None
+        self._last_step_time: Optional[float] = None  # [s]
         self._viewer = None
         self._launch_viewer = launch_viewer
         self._key_callback = key_callback
@@ -356,7 +356,7 @@ class MuJoCoBackend(RobotBackend):
         """The ``mujoco.viewer`` handle opened by :meth:`connect`, or None if not launched."""
         return self._viewer
 
-    _MAX_CATCHUP_S = 0.1
+    _MAX_CATCHUP_S = 0.1  # [s]
 
     def send_joint_targets(self, q: Dict[str, float]) -> bool:
         """Write joint targets to the position actuators and step the simulation forward."""
@@ -366,9 +366,9 @@ class MuJoCoBackend(RobotBackend):
             except KeyError:
                 continue
 
-        now = time.monotonic()
+        now = time.monotonic()  # [s]
         if self._realtime and self._last_step_time is not None:
-            elapsed_sim_needed = min(
+            elapsed_sim_needed = min(  # [s]
                 self._MAX_CATCHUP_S, max(0.0, now - self._last_step_time)
             )
         else:
@@ -401,9 +401,9 @@ class MuJoCoBackend(RobotBackend):
                 float(quat[2]),
                 float(quat[3]),
             )
-            gyro = self._data.sensor("imu_ang_vel").data
+            gyro = self._data.sensor("imu_ang_vel").data  # [rad.s⁻¹]
             state.imu_gyro = (float(gyro[0]), float(gyro[1]), float(gyro[2]))
-            accel = self._data.sensor("imu_accel").data
+            accel = self._data.sensor("imu_accel").data  # [m.s⁻²]
             state.imu_accel = (float(accel[0]), float(accel[1]), float(accel[2]))
         except KeyError:
             logger.warning("MJCF model has no 'imu' sensors - IMU state left at defaults")
@@ -449,13 +449,13 @@ class MuJoCoBackend(RobotBackend):
         self._set_led_ring_rgb(mean_rgb)
 
     def get_chassis_pose(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """Return (xyz, quat_wxyz) of the chassis free joint - simulation-only ground truth."""
+        """Return (xyz [m], quat_wxyz) of the chassis free joint - simulation-only ground truth."""
         return self._data.qpos[0:3].copy(), self._data.qpos[3:7].copy()
 
     def set_chassis_pose(
         self, xyz: Sequence[float], quat_wxyz: Sequence[float] = (1.0, 0.0, 0.0, 0.0)
     ) -> None:
-        """Set the chassis pose - simulation-only, for tests & resets."""
+        """Set the chassis pose (``xyz`` [m], unit quaternion) - simulation-only, for tests & resets."""
         self._data.qpos[0:3] = xyz
         self._data.qpos[3:7] = quat_wxyz
         self._data.qvel[:] = 0.0
@@ -470,7 +470,7 @@ class MuJoCoBackend(RobotBackend):
 class MotorCommand:
     """The joint-target output of a :class:`Move`, built on top of a kinematic reference."""
 
-    target_angles: Dict[str, float]
+    target_angles: Dict[str, float]  # [rad]
 
 class Move(ABC):
     """A stateful behavior driving joint targets on every control-loop tick."""
@@ -483,7 +483,7 @@ class Move(ABC):
             state: Latest proprioceptive snapshot.
             command: Target joints to update - starts each tick pre-filled with the previous
                 tick's targets.
-            dt: Time since the previous tick, in seconds.
+            dt: Time since the previous tick [s].
 
         """
 
@@ -504,13 +504,13 @@ def _load_config(config_path: Union[str, Path]) -> Dict[str, Any]:
 
 
 def _minimum_jerk(t01: float) -> float:
-    """Minimum-jerk time-scaling s(t) in [0, 1] for t01 in [0, 1] (zero vel/accel at ends)."""
+    """Minimum-jerk time-scaling s(t) in [0, 1] for a normalized time t01 in [0, 1] (zero vel/accel at ends)."""
     t01 = float(np.clip(t01, 0.0, 1.0))
     return 10.0 * t01**3 - 15.0 * t01**4 + 6.0 * t01**5
 
 
-_YAW_PRESTAGE_THRESHOLD_RAD = 0.2
-_YAW_PRESTAGE_SETTLE_S = 0.4
+_YAW_PRESTAGE_THRESHOLD_RAD = 0.2  # [rad]
+_YAW_PRESTAGE_SETTLE_S = 0.4  # [s]
 
 
 class Chromapi:
@@ -554,10 +554,10 @@ class Chromapi:
         """
         self.config = _load_config(config_path)
         control_cfg = self.config.get("control", {})
-        self.loop_hz: float = float(control_cfg.get("loop_hz", 50.0))
-        self.wake_up_duration_s: float = float(control_cfg.get("wake_up_duration_s", 3.5))
-        self.rest_duration_s: float = float(control_cfg.get("rest_duration_s", 2.0))
-        self.approach_duration_s: float = float(control_cfg.get("approach_duration_s", 2.0))
+        self.loop_hz: float = float(control_cfg.get("loop_hz", 50.0))  # [Hz]
+        self.wake_up_duration_s: float = float(control_cfg.get("wake_up_duration_s", 3.5))  # [s]
+        self.rest_duration_s: float = float(control_cfg.get("rest_duration_s", 2.0))  # [s]
+        self.approach_duration_s: float = float(control_cfg.get("approach_duration_s", 2.0))  # [s]
         self.kinematics = K.Kromatics(
             DEFAULT_URDF_PATH, dt=1.0 / self.loop_hz, initial_pose=dict(K.ZERO_POSE)
         )
@@ -577,7 +577,7 @@ class Chromapi:
         self._state_lock = threading.Lock()
         self._latest_state: Optional[RobotState] = None
         self._targets_lock = threading.Lock()
-        self._current_targets: Dict[str, float] = dict(K.ZERO_POSE)
+        self._current_targets: Dict[str, float] = dict(K.ZERO_POSE)  # [rad]
         self._active_move: Optional[Move] = None
         self._registered_moves: Dict[str, Move] = {}
         self._walk_move: Optional["WalkMove"] = None
@@ -649,15 +649,15 @@ class Chromapi:
             pass
 
     def _control_loop(self) -> None:
-        period = 1.0 / self.loop_hz
-        last_tick = time.monotonic()
-        next_deadline = last_tick + period
+        period = 1.0 / self.loop_hz  # [s]
+        last_tick = time.monotonic()  # [s]
+        next_deadline = last_tick + period  # [s]
         while not self._stop_event.is_set():
             if not self.backend.is_alive():
                 logger.info("Backend no longer alive (viewer closed?) - stopping control loop")
                 return
             tick_start = time.monotonic()
-            dt = tick_start - last_tick
+            dt = tick_start - last_tick  # [s]
             last_tick = tick_start
 
             state = self.backend.read_state()
@@ -678,7 +678,7 @@ class Chromapi:
 
             self.backend.send_joint_targets(targets)
 
-            elapsed = time.monotonic() - tick_start
+            elapsed = time.monotonic() - tick_start  # [s]
             if elapsed > 2 * period:
                 logger.warning(
                     "Control loop overrun: tick took %.1f ms (target period %.1f ms)",
@@ -686,8 +686,8 @@ class Chromapi:
                     period * 1000,
                 )
 
-            now = time.monotonic()
-            sleep_for = next_deadline - now
+            now = time.monotonic()  # [s]
+            sleep_for = next_deadline - now  # [s]
             if sleep_for > 0:
                 time.sleep(sleep_for)
             elif sleep_for < -period:
@@ -719,10 +719,10 @@ class Chromapi:
         """Command joint targets directly, optionally with a minimum-jerk transition.
 
         Args:
-            q: Target joint angles (in radians), as a joint dict or a length-12 array in
+            q: Target joint angles [rad], as a joint dict or a length-12 array in
                 ``kromatics.JOINT_NAMES`` order. Joints not present in a dict keep their
                 current target.
-            duration: If > 0, interpolate from the current targets over this many seconds. If 0,
+            duration: If > 0, interpolate from the current targets over this duration [s]. If 0,
                 jump immediately (only safe for small corrections).
 
         """
@@ -761,17 +761,17 @@ class Chromapi:
         """Smoothly stand up from whatever configuration the robot is currently in.
 
         Args:
-            duration: Transition time, in seconds (default: ``config["control"]["wake_up_duration_s"]``).
+            duration: Transition time [s] (default: ``config["control"]["wake_up_duration_s"]``).
             play_sound: If True (default), plays :data:`DEFAULT_CHROMAPI_SCREAM_PATH`.
 
         """
         self.enable_motors()
-        total_duration = duration or self.wake_up_duration_s
+        total_duration = duration or self.wake_up_duration_s  # [s]
         target = self.stand_pose()
         current = self.get_current_joint_positions()
 
         yaw_joints = [K.joint_name(leg, 1) for leg in K.LEG_NAMES]
-        max_yaw_delta = max(
+        max_yaw_delta = max(  # [rad]
             abs(target[joint] - current.get(joint, 0.0)) for joint in yaw_joints
         )
         if max_yaw_delta <= _YAW_PRESTAGE_THRESHOLD_RAD:
@@ -786,8 +786,8 @@ class Chromapi:
         yaw_prestage = dict(current)
         for joint in yaw_joints:
             yaw_prestage[joint] = target[joint]
-        prestage_duration = total_duration * 0.6
-        rise_duration = total_duration * 0.4
+        prestage_duration = total_duration * 0.6  # [s]
+        rise_duration = total_duration * 0.4  # [s]
         self.set_joint_targets(yaw_prestage, duration=prestage_duration)
         time.sleep(prestage_duration + _YAW_PRESTAGE_SETTLE_S)
         self.set_joint_targets(target, duration=rise_duration)
@@ -800,11 +800,11 @@ class Chromapi:
         """Smoothly crouch down to :meth:`rest_pose` and optionally release motor torque.
 
         Args:
-            duration: Transition time, in seconds (default: ``config["control"]["rest_duration_s"]``).
+            duration: Transition time [s] (default: ``config["control"]["rest_duration_s"]``).
             disable_torque: If True (default), disable torque once crouch is reached.
 
         """
-        transition_duration = duration or self.rest_duration_s
+        transition_duration = duration or self.rest_duration_s  # [s]
         self.set_joint_targets(self.rest_pose(), duration=transition_duration)
         if disable_torque:
             time.sleep(transition_duration + 0.1)
@@ -822,26 +822,26 @@ class Chromapi:
         """Tilt the trunk while standing, feet planted (quasi-static body posing).
 
         Args:
-            body_xyz: Translation of the chassis relative to the nominal stand pose, in
-                meters (world/ground frame).
-            body_rpy: Orientation of the chassis relative to level, in radians.
-            duration: Transition time, in seconds.
-            reference_height: Stance height for the default footprint, in meters.
-            x_reach: Footprint half-width along chassis X for the same default footprint.
-            y_reach: Footprint half-width along chassis Y for the same default footprint.
+            body_xyz: Translation of the chassis relative to the nominal stand pose
+                (world/ground frame) [m].
+            body_rpy: Orientation of the chassis relative to level [rad].
+            duration: Transition time [s].
+            reference_height: Stance height for the default footprint [m].
+            x_reach: Footprint half-width along chassis X for the same default footprint [m].
+            y_reach: Footprint half-width along chassis Y for the same default footprint [m].
 
         Returns:
             True if the target pose was reachable by all 4 legs (the transition is still
             started either way, converging to the closest reachable configuration).
 
         """
-        height = (
+        height = (  # [m]
             reference_height
             if reference_height is not None
             else K.Kromatics._STAND_REACH[2]
         )
-        x_reach_m = x_reach if x_reach is not None else K.Kromatics._STAND_REACH[0]
-        y_reach_m = y_reach if y_reach is not None else K.Kromatics._STAND_REACH[1]
+        x_reach_m = x_reach if x_reach is not None else K.Kromatics._STAND_REACH[0]  # [m]
+        y_reach_m = y_reach if y_reach is not None else K.Kromatics._STAND_REACH[1]  # [m]
         footprint = self.kinematics.stance_targets(height, x_reach_m, y_reach_m)
         q_target, converged = self.kinematics.body_ik(
             np.asarray(body_xyz),
@@ -867,9 +867,9 @@ class Chromapi:
         """Start (or update) open-loop walking at the given body-frame velocity.
 
         Args:
-            vx: Commanded forward velocity, in m/s (positive = forward).
-            vy: Commanded lateral velocity, in m/s (positive = left).
-            wz: Commanded yaw rate, in rad/s (positive = turn left).
+            vx: Commanded forward velocity (positive = forward) [m.s⁻¹].
+            vy: Commanded lateral velocity (positive = left) [m.s⁻¹].
+            wz: Commanded yaw rate (positive = turn left) [rad.s⁻¹].
             pattern: ``"crawl"`` (default, statically stable) or ``"trot"`` (faster, dynamic).
             params: Explicit :class:`~chromapi.locomotion.gait.GaitParams`, overriding
                 ``pattern``.
@@ -914,9 +914,9 @@ class Chromapi:
         """Walk forward (or sideways) approximately ``distance_m``, then stop.
 
         Args:
-            distance_m: Signed distance to walk, in meters. Positive = forward (or left, with
+            distance_m: Signed distance to walk [m]. Positive = forward (or left, with
                 ``lateral=True``).
-            speed: Commanded walking speed, in m/s (magnitude only).
+            speed: Commanded walking speed (magnitude only) [m.s⁻¹].
             lateral: If True, move sideways (left/right) instead of forward/backward.
             **walk_kwargs: Forwarded to :meth:`walk` (``pattern``, ``params``).
 
@@ -940,15 +940,15 @@ class Chromapi:
         """Turn in place by approximately ``degrees``, then stop.
 
         Args:
-            degrees: Signed angle to turn, in degrees. Positive = left.
-            angular_speed_deg_s: Commanded turning speed, in degrees/s (magnitude only).
+            degrees: Signed angle to turn [deg]. Positive = left.
+            angular_speed_deg_s: Commanded turning speed (magnitude only) [deg.s⁻¹].
             **walk_kwargs: Forwarded to :meth:`walk` (``pattern``, ``params``).
 
         """
         if angular_speed_deg_s <= 0.0:
             raise ValueError(f"angular_speed_deg_s must be positive, got {angular_speed_deg_s}")
         direction = 1.0 if degrees >= 0.0 else -1.0
-        angular_speed_rad_s = np.radians(angular_speed_deg_s)
+        angular_speed_rad_s = np.radians(angular_speed_deg_s)  # [rad.s⁻¹]
         self.walk(vx=0.0, vy=0.0, wz=direction * angular_speed_rad_s, **walk_kwargs)
         time.sleep(abs(np.radians(degrees)) / angular_speed_rad_s)
         self.stop_walk()
@@ -1016,8 +1016,8 @@ class _InterpolationMove(Move):
         """Store the endpoints; ``duration`` <= 0 completes on the first tick."""
         self._start = start
         self._target = target
-        self._duration = max(duration, 1e-6)
-        self._elapsed = 0.0
+        self._duration = max(duration, 1e-6)  # [s]
+        self._elapsed = 0.0  # [s]
 
     def step(self, state: RobotState, command: MotorCommand, dt: float) -> None:
         """Advance the interpolation by ``dt`` and write the blended targets."""

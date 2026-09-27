@@ -30,7 +30,7 @@ def run_diagnostics() -> None:
         return
 
     print("\n[*] Testing Power Monitor (INA226)...")
-    power = bridge.get_power()
+    power = bridge.get_power()  # ([V], [A], [W])
     if power:
         print(f"    [PASS] Bus Voltage: {power[0]:.2f} V | Current: {power[1]:.2f} A")
         if power[0] < 6.0:
@@ -41,7 +41,7 @@ def run_diagnostics() -> None:
     print("\n[*] Testing IMU & Switches via Feedback Stream...")
     state = bridge.get_state()
     if state:
-        acc = state['imu']['acc_mps2']
+        acc = state['imu']['acc_mps2']  # [m.s⁻²]
         if acc == [0.0, 0.0, 0.0]:
             print("    [FAIL] IMU Accel reads all zeros. SPI communication dead?")
         else:

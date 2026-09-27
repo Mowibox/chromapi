@@ -16,7 +16,7 @@ BRIDGE_SYNC_1 = 0x55
 BRIDGE_SYNC_2 = 0xAA
 
 # Reply timeout for the two hot-path calls (get_state()/set_positions())
-_HOT_PATH_TIMEOUT_S = 0.05
+_HOT_PATH_TIMEOUT_S = 0.05  # [s]
 
 
 class Command(IntEnum):
@@ -55,10 +55,17 @@ class BridgeClient:
     """Client class to interact with the STM32 Chromapi Motherboard."""
 
     def __init__(self, port: str = '/dev/ttyAMA0', baudrate: int = 1000000, timeout: float = 1.0) -> None:
-        """Initialize the BridgeClient with serial port parameters."""
+        """Initialize the BridgeClient with serial port parameters.
+
+        Args:
+            port: Serial device of the RPi4 <-> STM32 UART bridge.
+            baudrate: UART baud rate (must match the firmware).
+            timeout: Default reply timeout [s].
+
+        """
         self.port: str = port
         self.baudrate: int = baudrate
-        self.timeout: float = timeout
+        self.timeout: float = timeout  # [s]
         self.serial: Optional[serial.Serial] = None
         self.logger: logging.Logger = logging.getLogger("BridgeClient")
 
@@ -102,12 +109,12 @@ class BridgeClient:
         serial_port = self.serial  
 
         has_timeout_attr = hasattr(serial_port, 'timeout')
-        old_timeout = getattr(serial_port, 'timeout', None)
-        budget = timeout if timeout is not None else (old_timeout if old_timeout is not None else self.timeout)
-        deadline = time.monotonic() + budget
+        old_timeout = getattr(serial_port, 'timeout', None)  # [s]
+        budget = timeout if timeout is not None else (old_timeout if old_timeout is not None else self.timeout)  # [s]
+        deadline = time.monotonic() + budget  # [s]
 
         def _arm_remaining_timeout() -> float:
-            remaining = deadline - time.monotonic()
+            remaining = deadline - time.monotonic()  # [s]
             if has_timeout_attr:
                 serial_port.timeout = max(remaining, 0.0)
             return remaining
@@ -199,7 +206,7 @@ class BridgeClient:
             return False
 
     def get_power(self) -> Optional[Tuple[float, float, float]]:
-        """Retrieve voltage, current, and power from the INA226 sensor."""
+        """Retrieve voltage [V], current [A] and power [W] from the INA226 sensor."""
         if self.serial is None:
             return None
         self.serial.reset_input_buffer()
@@ -207,7 +214,7 @@ class BridgeClient:
         try:
             cmd, payload = self._read_reply()
             if cmd == Response.POWER_READING and len(payload) == 12:
-                bus_uV, curr_uA, power_uW = struct.unpack('<iii', payload)
+                bus_uV, curr_uA, power_uW = struct.unpack('<iii', payload)  # [µV], [µA], [µW]
                 return (bus_uV / 1_000_000.0, curr_uA / 1_000_000.0, power_uW / 1_000_000.0)
             return None
         except Exception as e:
@@ -216,7 +223,13 @@ class BridgeClient:
 
     @staticmethod
     def _decode_state_snapshot(payload: bytes) -> Dict[str, Any]:
-        """Decode a 129-byte STATE_SNAPSHOT payload (shared by get_state() & set_positions())."""
+        """Decode a 129-byte STATE_SNAPSHOT payload (shared by get_state() & set_positions()).
+
+        Units of the returned fields: ``voltage_V`` [V], ``current_A`` [A], ``power_W`` [W];
+        per servo ``pos`` [step], ``speed`` [step.s⁻¹], ``load`` [0.1 %] of rated torque,
+        ``temp_C`` [°C], ``volt_V`` [V]; ``acc_mps2`` [m.s⁻²], ``gyro_rps`` [rad.s⁻¹], ``quat``
+        unit quaternion (w, x, y, z).
+        """
         data = struct.unpack('<iii' + ('HhhBB' * 12) + 'hhhhhhhhhhB', payload)
 
         return {
