@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Callable, Dict, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
-from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation as SciRotation
 
 from chromapi.kinematics.topology import JOINT_SUFFIXES, LEG_NAMES, joint_name
@@ -22,109 +21,145 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "AnalyticalIK",
     "CalibrationReport",
-    "LegGeometry",
-    "leg_fk",
-    "leg_ik",
-    "reach_fraction",
+    "LegChain",
+    "WORKSPACE_MARGIN",
 ]
 
-# Keep the reachable workspace a little smaller than d = l2 + l3, to avoid the full extension singularity. 
+# Keep the reachable workspace a little smaller than d = l2 + l3, to avoid the full extension singularity
 WORKSPACE_MARGIN = 0.95
 
 # ============================================================================================
-# Pure closed-form math
+# Exact per-leg chain & 4-leg wrapper
 # ============================================================================================
 
 
-def leg_fk(q1: float, q2: float, q3: float, l1: float, l2: float, l3: float) -> Vector3:
-    """Forward kinematics of one 3-DOF leg."""
-    reach = l1 + l2 * np.cos(q2) + l3 * np.cos(q2 + q3)
-    z = -l2 * np.sin(q2) - l3 * np.sin(q2 + q3)
-    return np.array([np.cos(q1) * reach, np.sin(q1) * reach, z])
+def _rotation(axis: Vector3, angle: float) -> npt.NDArray[np.float64]:
+    """Rotation matrix of ``angle`` [rad] about the unit vector ``axis``."""
+    return np.asarray(SciRotation.from_rotvec(np.asarray(axis, dtype=float) * angle).as_matrix())
 
 
-def leg_ik(
-    p_hip_frame: Vector3,
-    l1: float,
-    l2: float,
-    l3: float,
-    knee_up: bool = True,
-) -> Optional[Tuple[float, float, float]]:
-    """Closed-form inverse kinematics of one 3-DOF leg."""
-    x, y, z = (float(v) for v in p_hip_frame)
-    q1 = np.arctan2(y, x)
-
-    ell = np.hypot(x, y) - l1
-    d = np.hypot(ell, z)
-    if d > l2 + l3 or d < abs(l2 - l3):
-        return None
-
-    c3 = (d**2 - l2**2 - l3**2) / (2.0 * l2 * l3)
-    c3 = float(np.clip(c3, -1.0, 1.0)) # ensuring numerical stability for arctan2
-    s3_mag = np.sqrt(max(0.0, 1.0 - c3**2))
-    s3 = s3_mag if knee_up else -s3_mag
-    q3 = float(np.arctan2(s3, c3))
-    q2 = float(np.arctan2(-z, ell) - np.arctan2(l3 * s3, l2 + l3 * c3))
-    return q1, q2, q3
+def _wrap(angle: float) -> float:
+    """Wrap an angle [rad] to ``]-pi, pi]``."""
+    return float(np.pi - (np.pi - angle) % (2.0 * np.pi))
 
 
-def reach_fraction(p_hip_frame: Vector3, l1: float, l2: float, l3: float) -> float:
-    """Fraction of max knee extension used to reach ``p_hip_frame``."""
-    x, y, z = (float(v) for v in p_hip_frame)
-    ell = np.hypot(x, y) - l1
-    d = np.hypot(ell, z)
-    return float(d / (l2 + l3))
+def _angle2(v: npt.NDArray[np.float64]) -> float:
+    return float(np.arctan2(v[1], v[0]))
 
 
-# ============================================================================================
-# Per-leg geometry & 4-leg wrapper
-# ============================================================================================
+def _rot2(v: npt.NDArray[np.float64], angle: float) -> npt.NDArray[np.float64]:
+    c, s = np.cos(angle), np.sin(angle)
+    return np.array([c * v[0] - s * v[1], s * v[0] + c * v[1]])
 
 
 @dataclass
-class LegGeometry:
-    """One leg's segment lengths and the pose of its hip frame H in some outer frame."""
-    l1: float
-    l2: float
-    l3: float
-    hip_origin: Vector3
-    hip_rotation: npt.NDArray[np.float64] = field(default_factory=lambda: np.eye(3))
-    knee_up: bool = True
+class LegChain:
+    """Exact geometry of one leg, read from the URDF at the all-zero configuration.
 
-    def to_hip_frame(self, p_outer: Vector3) -> Vector3:
-        """Convert a point from the outer frame to this leg's hip frame H."""
-        return self.hip_rotation.T @ (np.asarray(p_outer, dtype=float) - self.hip_origin)
+    Nothing is assumed about the leg's shape: each joint is a
+    rotation about its real axis line (``points[i]``, ``axes[i]``, chassis frame, joint at zero),
+    so joint offsets, a bent tibia at ``q3 = 0`` and mirrored axes (tl/bl vs tr/br) are all exact.
+    Closed-form IK only needs axis 1 perpendicular to axes 2 and 3, and axes 2 and 3 parallel.
 
-    def to_outer_frame(self, p_hip_frame: Vector3) -> Vector3:
-        """Convert a point from this leg's hip frame H to the outer frame."""
-        result = self.hip_origin + self.hip_rotation @ np.asarray(p_hip_frame, dtype=float)
-        return np.asarray(result, dtype=np.float64)
+    Attributes:
+        points: Point on each joint axis (the joint origin), chassis frame [m].
+        axes: Unit axis of each joint, chassis frame (URDF sign included).
+        foot: Foot position at the all-zero configuration, chassis frame [m].
+        lower: Joint lower limits ``(q1, q2, q3)`` [rad].
+        upper: Joint upper limits ``(q1, q2, q3)`` [rad].
+        workspace_margin: Largest usable fraction of full extension - the distance from joint 2
+            to the foot may not exceed ``workspace_margin * (femur + tibia)``.
 
-    def as_vector(self) -> npt.NDArray[np.float64]:
-        """Pack as ``(l1, l2, l3, *hip_origin, *hip_rotation.as_rotvec())`` for the optimizer."""
-        rotvec = SciRotation.from_matrix(self.hip_rotation).as_rotvec()
-        packed = np.concatenate([[self.l1, self.l2, self.l3], self.hip_origin, rotvec])
-        return np.asarray(packed, dtype=np.float64)
+    """
 
-    @classmethod
-    def from_vector(cls, x: npt.NDArray[np.float64], knee_up: bool = True) -> "LegGeometry":
-        """Inverse of :meth:`as_vector`."""
-        l1, l2, l3 = x[0:3]
-        hip_origin = np.asarray(x[3:6], dtype=float)
-        hip_rotation = SciRotation.from_rotvec(x[6:9]).as_matrix()
-        return cls(l1=float(l1), l2=float(l2), l3=float(l3), hip_origin=hip_origin,
-                    hip_rotation=hip_rotation, knee_up=knee_up)
+    points: Tuple[Vector3, Vector3, Vector3]  # [m]
+    axes: Tuple[Vector3, Vector3, Vector3]
+    foot: Vector3  # [m]
+    lower: Tuple[float, float, float] = (-np.pi, -np.pi, -np.pi)  # [rad]
+    upper: Tuple[float, float, float] = (np.pi, np.pi, np.pi)  # [rad]
+    workspace_margin: float = WORKSPACE_MARGIN
+
+    def __post_init__(self) -> None:
+        """Precompute the planar (radial, height) model of the q2/q3 sub-chain."""
+        p1 = np.asarray(self.points[0], dtype=float)  # [m]
+        e_h = np.asarray(self.axes[0], dtype=float)
+        e_l = np.asarray(self.axes[1], dtype=float)
+        if abs(float(e_h @ e_l)) > 1e-6 or abs(abs(float(e_l @ self.axes[2])) - 1.0) > 1e-6:
+            raise ValueError("LegChain: needs axis 1 perpendicular to axes 2/3, axes 2/3 parallel")
+        e_r = np.cross(e_l, e_h)  # (e_r, e_l, e_h) right-handed; q1 turns e_r toward e_l
+        self._p1, self._e_r, self._e_l, self._e_h = p1, e_r, e_l, e_h
+
+        def plane(p: Vector3) -> npt.NDArray[np.float64]:
+            d = np.asarray(p, dtype=float) - p1  # [m]
+            return np.array([float(d @ e_r), float(d @ e_h)])
+
+        # A rotation about +e_l turns the (radial, height) plane clockwise: sigma = -1.
+        self._sigma = [float(np.sign(np.cross(a, e_r) @ e_h)) for a in self.axes[1:]]
+        self._j2 = plane(self.points[1])  # [m]
+        self._femur = plane(self.points[2]) - self._j2  # [m]
+        self._tibia = plane(self.foot) - plane(self.points[2])  # [m]
+        self._lateral = float((np.asarray(self.foot, dtype=float) - p1) @ e_l)  # [m]
+        self._radial_sign = 1.0 if plane(self.foot)[0] >= 0.0 else -1.0
+        self._bend = _angle2(self._tibia) - _angle2(self._femur)  # [rad]
+
+    def forward(self, q1: float, q2: float, q3: float) -> Vector3:
+        """Exact foot position (chassis frame) [m] for joint angles ``q1..q3`` [rad]."""
+        p = np.asarray(self.foot, dtype=float)  # [m]
+        for point, axis, angle in zip(self.points[::-1], self.axes[::-1], (q3, q2, q1)):
+            point = np.asarray(point, dtype=float)  # [m]
+            p = point + _rotation(axis, angle) @ (p - point)
+        return np.asarray(p, dtype=np.float64)
+
+    def inverse(
+        self, target: Vector3, reference: Optional[Tuple[float, float, float]] = None
+    ) -> Optional[Tuple[float, float, float]]:
+        """Closed-form ``(q1, q2, q3)`` [rad] reaching ``target`` [m] within the joint limits, or ``None``.
+
+        Of the (up to four) hip/knee branches, returns the one closest to ``reference`` (the
+        previous solution, typically) - or the first valid one without a reference. A target
+        needing more than ``workspace_margin`` of full leg extension is refused (``None``).
+        """
+        d = np.asarray(target, dtype=float) - self._p1  # [m]
+        h = float(d @ self._e_h)  # [m]
+        dr, dl = float(d @ self._e_r), float(d @ self._e_l)  # [m]
+        r_sq = dr * dr + dl * dl - self._lateral**2  # [m²]
+        if r_sq < 0.0:
+            return None
+        a, b = float(np.linalg.norm(self._femur)), float(np.linalg.norm(self._tibia))  # [m]
+        s2, s3 = self._sigma
+        candidates = []
+        # Foot on the zero-configuration side of axis 1 first; the other side (foot tucked
+        # behind the hip) is a valid, if unusual, solution too.
+        for r in (self._radial_sign * np.sqrt(r_sq), -self._radial_sign * np.sqrt(r_sq)):
+            q1 = _wrap(np.arctan2(dl, dr) - np.arctan2(self._lateral, r))  # [rad]
+            reach = np.array([r, h]) - self._j2  # [m]
+            if float(np.linalg.norm(reach)) > self.workspace_margin * (a + b):
+                continue  # too close to full extension (singularity)
+            cos_knee = (float(reach @ reach) - a * a - b * b) / (2.0 * a * b)
+            if abs(cos_knee) > 1.0:
+                continue
+            for knee in (np.arccos(cos_knee), -np.arccos(cos_knee)):
+                psi = knee - self._bend  # [rad], planar rotation of the tibia relative to the femur
+                phi = _angle2(reach) - _angle2(self._femur + _rot2(self._tibia, psi))  # [rad]
+                q = (q1, _wrap(phi / s2), _wrap(psi / s3))
+                if all(lo - 1e-9 <= v <= hi + 1e-9 for v, lo, hi in zip(q, self.lower, self.upper)):
+                    candidates.append(q)
+        if not candidates:
+            return None
+        if reference is None:
+            return candidates[0]
+        return min(candidates, key=lambda q: float(np.linalg.norm(np.subtract(q, reference))))
 
 
 @dataclass
 class CalibrationReport:
-    """Per-leg fit quality from :meth:`AnalyticalIK.calibrate`."""
-    rms_error_m: Dict[str, float]
-    max_error_m: Dict[str, float]
+    """Per-leg agreement between the closed-form model and a ground-truth FK."""
+    rms_error_m: Dict[str, float]  # [m]
+    max_error_m: Dict[str, float]  # [m]
     n_samples: Dict[str, int]
 
     def ok(self, tolerance_m: float = 0.002) -> bool:
-        """True if every leg's ``max_error_m`` is within ``tolerance_m`` (default 2 mm)."""
+        """True if every leg's ``max_error_m`` is within ``tolerance_m`` [m] (default 2 mm)."""
         return all(err <= tolerance_m for err in self.max_error_m.values())
 
     def summary(self) -> str:
@@ -137,26 +172,36 @@ class CalibrationReport:
         return "\n".join(lines)
 
 
-_Sample = Tuple[Tuple[float, float, float], Vector3]
-
-
 class AnalyticalIK:
     """Closed-form IK/FK for all 4 Chromapi legs."""
 
-    def __init__(self, geometries: Dict[str, LegGeometry]) -> None:
-        """Wrap one :class:`LegGeometry` per leg (must cover every entry of ``LEG_NAMES``)."""
-        missing = set(LEG_NAMES) - set(geometries)
+    def __init__(
+        self, chains: Dict[str, LegChain], reference: Optional[JointDict] = None
+    ) -> None:
+        """Wrap one :class:`LegChain` per leg (must cover every entry of ``LEG_NAMES``).
+
+        ``reference`` seeds the knee-branch choice (the solution closest to the previous one is
+        kept, so the branch stays continuous); defaults to :data:`WAKE_UP_POSE`.
+        """
+        missing = set(LEG_NAMES) - set(chains)
         if missing:
             raise ValueError(f"AnalyticalIK is missing geometry for legs: {sorted(missing)}")
-        self.geometries = dict(geometries)
+        if reference is None:
+            from chromapi.kinematics.poses import WAKE_UP_POSE
+
+            reference = WAKE_UP_POSE
+        self.chains = dict(chains)
+        self._last: Dict[str, Tuple[float, float, float]] = {
+            leg: tuple(float(reference[joint_name(leg, s)]) for s in JOINT_SUFFIXES)  # type: ignore[misc]
+            for leg in LEG_NAMES
+        }
 
     def forward_kinematics_leg(self, leg: str, q1: float, q2: float, q3: float) -> Vector3:
-        """Foot position for one leg, in the chassis frame."""
-        geom = self.geometries[leg]
-        return geom.to_outer_frame(leg_fk(q1, q2, q3, geom.l1, geom.l2, geom.l3))
+        """Foot position [m] for one leg, in the chassis frame, from joint angles [rad]."""
+        return self.chains[leg].forward(q1, q2, q3)
 
     def forward_kinematics(self, q: JointDict) -> FootTargets:
-        """Foot positions for all 4 legs, in the chassis frame."""
+        """Foot positions [m] for all 4 legs, in the chassis frame, from joint angles [rad]."""
         return {
             leg: self.forward_kinematics_leg(
                 leg, q[joint_name(leg, 1)], q[joint_name(leg, 2)], q[joint_name(leg, 3)]
@@ -167,13 +212,14 @@ class AnalyticalIK:
     def inverse_kinematics_leg(
         self, leg: str, p_outer: Vector3
     ) -> Optional[Tuple[float, float, float]]:
-        """Closed-form ``(q1, q2, q3)`` for one leg's foot target, or ``None`` if unreachable."""
-        geom = self.geometries[leg]
-        p_hip = geom.to_hip_frame(p_outer)
-        return leg_ik(p_hip, geom.l1, geom.l2, geom.l3, knee_up=geom.knee_up)
+        """Closed-form ``(q1, q2, q3)`` [rad] for one leg's foot target [m], or ``None`` if unreachable."""
+        solution = self.chains[leg].inverse(p_outer, reference=self._last[leg])
+        if solution is not None:
+            self._last[leg] = solution
+        return solution
 
     def inverse_kinematics(self, foot_targets: FootTargets) -> Tuple[JointDict, bool]:
-        """Closed-form joint angles for a set of foot targets (chassis frame)."""
+        """Closed-form joint angles [rad] for a set of foot targets (chassis frame) [m]."""
         q: JointDict = {}
         converged = True
         for leg, target in foot_targets.items():
@@ -181,154 +227,80 @@ class AnalyticalIK:
             if solution is None:
                 converged = False
                 continue
-            q1, q2, q3 = solution
-            for suffix, value in zip(JOINT_SUFFIXES, (q1, q2, q3)):
+            for suffix, value in zip(JOINT_SUFFIXES, solution):
                 q[joint_name(leg, suffix)] = value
         return q, converged
 
-    # -- calibration ---------------------------------------------------------------------
-
-    @staticmethod
-    def _residuals(
-        x_by_leg: Dict[str, npt.NDArray[np.float64]],
-        samples: Dict[str, List[_Sample]],
-        legs: Sequence[str],
-    ) -> npt.NDArray[np.float64]:
-        out = []
-        for leg in legs:
-            geom = LegGeometry.from_vector(x_by_leg[leg])
-            for (q1, q2, q3), target in samples[leg]:
-                pred = geom.to_outer_frame(leg_fk(q1, q2, q3, geom.l1, geom.l2, geom.l3))
-                out.append(pred - np.asarray(target, dtype=float))
-        return np.concatenate(out) if out else np.zeros(0)
-
-    @classmethod
-    def calibrate(
-        cls,
-        samples: Dict[str, List[_Sample]],
-        initial_guess: Dict[str, LegGeometry],
-        knee_up: Optional[Dict[str, bool]] = None,
-    ) -> Tuple["AnalyticalIK", CalibrationReport]:
-        """Fit a :class:`LegGeometry` per leg from forward-kinematics samples.
-
-        Nonlinear least squares (per leg, independently) over ``(l1, l2, l3, hip_origin,
-        hip_rotation)``, seeded from ``initial_guess``. Only converges to the true geometry from
-        a reasonable starting point - Always check :meth:`CalibrationReport.ok` before trusting the result.
-
-        Args:
-            samples: Per leg, a list of ``((q1, q2, q3), foot_position_outer_frame)`` pairs.
-            initial_guess: Per-leg starting :class:`LegGeometry` for the optimizer.
-            knee_up: Per-leg branch selection for the returned :class:`AnalyticalIK` - defaults
-                to whatever ``initial_guess`` specifies.
-
-        Returns:
-            ``(AnalyticalIK, CalibrationReport)``.
-
-        """
-        legs = list(samples)
-        missing = set(legs) - set(initial_guess)
-        if missing:
-            raise ValueError(f"calibrate: missing initial_guess for legs: {sorted(missing)}")
-
-        x0 = np.concatenate([initial_guess[leg].as_vector() for leg in legs])
-        sizes = [9] * len(legs)
-
-        def unpack(x: npt.NDArray[np.float64]) -> Dict[str, npt.NDArray[np.float64]]:
-            offsets = np.cumsum([0] + sizes)
-            return {leg: x[offsets[i]:offsets[i + 1]] for i, leg in enumerate(legs)}
-
-        def residuals(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-            return cls._residuals(unpack(x), samples, legs)
-
-        result = least_squares(residuals, x0, method="lm", max_nfev=50_000)
-        fitted = unpack(result.x)
-
-        geometries: Dict[str, LegGeometry] = {}
-        rms_error: Dict[str, float] = {}
-        max_error: Dict[str, float] = {}
-        n_samples: Dict[str, int] = {}
-        for leg in legs:
-            branch = knee_up[leg] if knee_up and leg in knee_up else initial_guess[leg].knee_up
-            geom = LegGeometry.from_vector(fitted[leg], knee_up=branch)
-            geometries[leg] = geom
-            errors = [
-                np.linalg.norm(
-                    geom.to_outer_frame(leg_fk(q1, q2, q3, geom.l1, geom.l2, geom.l3))
-                    - np.asarray(target, dtype=float)
-                )
-                for (q1, q2, q3), target in samples[leg]
-            ]
-            rms_error[leg] = float(np.sqrt(np.mean(np.square(errors)))) if errors else float("nan")
-            max_error[leg] = float(np.max(errors)) if errors else float("nan")
-            n_samples[leg] = len(errors)
-
-        report = CalibrationReport(rms_error_m=rms_error, max_error_m=max_error, n_samples=n_samples)
-        if not report.ok():
-            logger.warning(
-                "AnalyticalIK.calibrate: fit residual exceeds 2 mm for at least one leg - see "
-                "CalibrationReport before trusting this solver for real foot placement:\n%s",
-                report.summary(),
-            )
-        return cls(geometries), report
+    # -- construction -------------------------------------------------------------------
 
     @classmethod
     def from_kromatics(
         cls,
         kinematics: "Kromatics",
         n_samples: int = 300,
-        joint_range: float = 1.0,
         seed: int = 0,
-        knee_up: Optional[Dict[str, bool]] = None,
     ) -> Tuple["AnalyticalIK", CalibrationReport]:
-        """Calibrate against a live :class:`~chromapi.kinematics.kromatics.Kromatics` model.
+        """Read each leg's exact chain from a live :class:`~chromapi.kinematics.kromatics.Kromatics`.
 
-        Seeds the initial guess from the URDF's own hip transform and total leg reach at the
-        all-zero configuration, then fits from ``n_samples`` random configurations per leg drawn
-        from ``[-joint_range, +joint_range]`` radians. ``knee_up`` defaults to matching
-        :data:`~chromapi.kinematics.poses.WAKE_UP_POSE`'s own knee sign. Check the returned
-        :class:`CalibrationReport` before trusting the result for more than a QP warm start.
+        Joint origins come from the joint frames at the all-zero configuration; each axis from the
+        rotation the foot frame undergoes when only that joint moves (so URDF axis signs and
+        mirrored legs are taken as they are). The returned report checks the model against the
+        URDF forward kinematics on ``n_samples`` random configurations within the joint limits
+        per leg - it should be at numerical precision. The kinematics' joint state is restored.
         """
         from chromapi.kinematics.kromatics import (
             _CHASSIS_FRAME,  # local: avoid import cycle
         )
-        from chromapi.kinematics.poses import WAKE_UP_POSE
+        from chromapi.kinematics.topology import FOOT_FRAME_NAMES, JOINT_NAMES
 
-        rng = np.random.default_rng(seed)
-        initial_guess: Dict[str, LegGeometry] = {}
-        default_knee_up = {leg: WAKE_UP_POSE[joint_name(leg, 3)] >= 0.0 for leg in LEG_NAMES}
-        knee_up = knee_up or default_knee_up
+        robot = kinematics.robot
+        saved = {name: float(robot.get_joint(name)) for name in JOINT_NAMES}  # [rad]
+        zero = dict.fromkeys(JOINT_NAMES, 0.0)  # [rad]
+        delta = 1e-3  # [rad]
 
-        for leg in LEG_NAMES:
-            hip_transform = kinematics.robot.get_T_a_b(_CHASSIS_FRAME, joint_name(leg, 1))
-            hip_origin = hip_transform[:3, 3].copy()
-            hip_rotation = hip_transform[:3, :3].copy()
-            initial_guess[leg] = LegGeometry(
-                l1=0.0, l2=0.0, l3=0.0,  # filled in below, once total_reach is known
-                hip_origin=hip_origin, hip_rotation=hip_rotation, knee_up=knee_up[leg],
+        def foot_rotation(q: JointDict, leg: str) -> npt.NDArray[np.float64]:
+            kinematics.forward_kinematics(q)
+            return robot.get_T_a_b(_CHASSIS_FRAME, FOOT_FRAME_NAMES[leg])[:3, :3].copy()
+
+        try:
+            chains: Dict[str, LegChain] = {}
+            for leg in LEG_NAMES:
+                foot = kinematics.forward_kinematics(zero)[leg]  # [m]
+                names = [joint_name(leg, s) for s in JOINT_SUFFIXES]
+                points = tuple(robot.get_T_a_b(_CHASSIS_FRAME, n)[:3, 3].copy() for n in names)  # [m]
+                r0 = foot_rotation(zero, leg)
+                axes = []
+                for name in names:
+                    moved = dict(zero)
+                    moved[name] = delta
+                    rotvec = SciRotation.from_matrix(foot_rotation(moved, leg) @ r0.T).as_rotvec()  # [rad]
+                    axes.append(rotvec / np.linalg.norm(rotvec))
+                limits = [robot.get_joint_limits(n) for n in names]  # [rad]
+                chains[leg] = LegChain(
+                    points=points,  # type: ignore[arg-type]
+                    axes=tuple(axes),  # type: ignore[arg-type]
+                    foot=foot,
+                    lower=tuple(float(lo) for lo, _ in limits),  # type: ignore[arg-type]
+                    upper=tuple(float(hi) for _, hi in limits),  # type: ignore[arg-type]
+                )
+            ik = cls(chains)
+
+            def truth(leg: str, q1: float, q2: float, q3: float) -> Vector3:
+                q = dict(zero)
+                q.update(zip((joint_name(leg, s) for s in JOINT_SUFFIXES), (q1, q2, q3)))
+                return kinematics.forward_kinematics(q)[leg]
+
+            report = ik.validate(truth, n_samples=n_samples, seed=seed)
+        finally:
+            kinematics.forward_kinematics(saved)
+
+        if not report.ok():
+            logger.warning(
+                "AnalyticalIK.from_kromatics: the closed-form model disagrees with the URDF by "
+                "more than 2 mm - see CalibrationReport:\n%s",
+                report.summary(),
             )
-
-        zero_q = {name: 0.0 for name in (
-            n for leg in LEG_NAMES for n in (joint_name(leg, 1), joint_name(leg, 2), joint_name(leg, 3))
-        )}
-        zero_feet = kinematics.forward_kinematics(zero_q)
-        for leg in LEG_NAMES:
-            geom = initial_guess[leg]
-            total_reach = float(np.linalg.norm(zero_feet[leg] - geom.hip_origin))
-            third = max(total_reach / 3.0, 1e-3)
-            geom.l1 = geom.l2 = geom.l3 = third
-
-        samples: Dict[str, List[_Sample]] = {leg: [] for leg in LEG_NAMES}
-        for leg in LEG_NAMES:
-            for _ in range(n_samples):
-                q1, q2, q3 = rng.uniform(-joint_range, joint_range, size=3)
-                q = dict(zero_q)
-                q[joint_name(leg, 1)] = q1
-                q[joint_name(leg, 2)] = q2
-                q[joint_name(leg, 3)] = q3
-                foot = kinematics.forward_kinematics(q)[leg]
-                samples[leg].append(((q1, q2, q3), foot))
-
-        return cls.calibrate(samples, initial_guess, knee_up=knee_up)
+        return ik, report
 
     # -- validation -------------------------------------------------------------------
 
@@ -336,20 +308,19 @@ class AnalyticalIK:
         self,
         forward_kinematics: Callable[[str, float, float, float], Vector3],
         n_samples: int = 200,
-        joint_range: float = 1.0,
         seed: int = 1,
     ) -> CalibrationReport:
-        """Independent residual check against a ground-truth FK, on fresh random configurations."""
+        """Residual check against a ground-truth FK, on random configurations within the limits."""
         rng = np.random.default_rng(seed)
         rms_error: Dict[str, float] = {}
         max_error: Dict[str, float] = {}
         n_used: Dict[str, int] = {}
-        for leg in self.geometries:
-            errors = []
+        for leg, chain in self.chains.items():
+            errors = []  # [m]
             for _ in range(n_samples):
-                q1, q2, q3 = rng.uniform(-joint_range, joint_range, size=3)
-                truth = forward_kinematics(leg, q1, q2, q3)
-                pred = self.forward_kinematics_leg(leg, q1, q2, q3)
+                q1, q2, q3 = rng.uniform(chain.lower, chain.upper)  # [rad]
+                truth = forward_kinematics(leg, q1, q2, q3)  # [m]
+                pred = self.forward_kinematics_leg(leg, q1, q2, q3)  # [m]
                 errors.append(np.linalg.norm(pred - np.asarray(truth, dtype=float)))
             rms_error[leg] = float(np.sqrt(np.mean(np.square(errors))))
             max_error[leg] = float(np.max(errors))

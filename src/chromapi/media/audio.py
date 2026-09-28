@@ -39,17 +39,17 @@ def _to_float32(samples: npt.NDArray[Any], sample_width: int) -> npt.NDArray[np.
 
 
 def _device_default_samplerate(sd: Any, device: Union[int, str, None]) -> Optional[int]:
-    """Best-effort lookup of an output device's native sample rate, or ``None`` if unknown."""
+    """Best-effort lookup of an output device's native sample rate [Hz], or ``None`` if unknown."""
     try:
         info = sd.query_devices(device, kind="output") if device is not None else sd.query_devices(kind="output")
-        rate = info.get("default_samplerate")
+        rate = info.get("default_samplerate")  # [Hz]
         return int(round(rate)) if rate else None
     except Exception:
         return None
 
 
 def _resample_to(samples: npt.NDArray[np.float32], orig_rate: int, target_rate: int) -> npt.NDArray[np.float32]:
-    """Resample (mono or multi-channel, shape ``(n,)``/``(n, channels)``) float32 audio."""
+    """Resample (mono or multi-channel, shape ``(n,)``/``(n, channels)``) float32 audio from ``orig_rate`` to ``target_rate`` [Hz]."""
     if orig_rate == target_rate:
         return samples
     divisor = gcd(orig_rate, target_rate)
@@ -62,8 +62,8 @@ def _decode_wav(path: Union[str, Path], volume: float) -> Optional[Any]:
     try:
         with wave.open(str(path), "rb") as wav_file:
             n_channels = wav_file.getnchannels()
-            sample_width = wav_file.getsampwidth()
-            sample_rate = wav_file.getframerate()
+            sample_width = wav_file.getsampwidth()  # [byte]
+            sample_rate = wav_file.getframerate()  # [Hz]
             raw = wav_file.readframes(wav_file.getnframes())
     except (OSError, wave.Error) as exc:
         logger.warning("_decode_wav(%s): could not read the file (%s)", path, exc)
@@ -119,8 +119,8 @@ def play_wav(
         return False
     scaled, sample_rate, _n_channels = decoded
 
-    play_rate = sample_rate
-    device_rate = _device_default_samplerate(sd, device)
+    play_rate = sample_rate  # [Hz]
+    device_rate = _device_default_samplerate(sd, device)  # [Hz]
     if device_rate and device_rate != sample_rate:
         try:
             scaled = _resample_to(scaled, sample_rate, device_rate)
@@ -216,8 +216,8 @@ class PersistentAudioOutput:
     def __init__(
         self, samplerate: Optional[int] = None, channels: int = 1, device: Union[int, str, None] = None
     ) -> None:
-        """Configure the output - opens no stream until :meth:`start`."""
-        self.samplerate = samplerate
+        """Configure the output (``samplerate`` [Hz]) - opens no stream until :meth:`start`."""
+        self.samplerate = samplerate  # [Hz]
         self.channels = channels
         self.device = device
         self._stream: Optional[Any] = None
@@ -325,8 +325,8 @@ def record_wav(
 
     Args:
         path: Output .wav path (overwritten if it exists).
-        duration_s: How long to record, in seconds.
-        samplerate: Sample rate, in Hz.
+        duration_s: How long to record [s].
+        samplerate: Sample rate [Hz].
         channels: Number of input channels to capture.
         device: Passed straight to ``sounddevice`` (index, name substring, or ``None`` for the system default input).
         gain: Linear gain applied to the recorded samples before writing to disk.
@@ -372,8 +372,8 @@ class PushToTalkRecorder:
     def __init__(
         self, samplerate: int = 44100, channels: int = 1, device: Union[int, str, None] = None, gain: float = 1.0
     ) -> None:
-        """Configure the recorder - opens no device until :meth:`start`."""
-        self.samplerate = samplerate
+        """Configure the recorder (``samplerate`` [Hz]) - opens no device until :meth:`start`."""
+        self.samplerate = samplerate  # [Hz]
         self.channels = channels
         self.device = device
         self.gain = gain
