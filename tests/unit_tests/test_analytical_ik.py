@@ -1,6 +1,7 @@
 """Closed-form leg IK (from chromapi.kinematics.analytical_ik) against the URDF model."""
 
 import dataclasses
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
@@ -14,9 +15,16 @@ URDF_PATH = Path(__file__).resolve().parents[2] / "src" / "chromapi" / "model" /
 
 
 @pytest.fixture(scope="module")
-def kinematics() -> Kromatics:
-    """Kromatics model loaded from the package URDF."""
-    return Kromatics(URDF_PATH, dt=0.02)
+def kinematics(tmp_path_factory: pytest.TempPathFactory) -> Kromatics:
+    """Chromapi model loaded from the package URDF, without its meshes."""
+    tree = ET.parse(URDF_PATH)
+    for link in tree.getroot().iter("link"):
+        for tag in ("visual", "collision"):
+            for element in link.findall(tag):
+                link.remove(element)
+    urdf = tmp_path_factory.mktemp("urdf") / "robot.urdf"
+    tree.write(urdf)
+    return Kromatics(urdf, dt=0.02)
 
 
 @pytest.fixture(scope="module")
