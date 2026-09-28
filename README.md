@@ -27,7 +27,7 @@ Chromapi is a 4-legged robot project on which I'm working by my own.
 
 | Resource | Description | Location | Status |
 | :--- | :--- | :--- | :--- |
-| **📋 Bill of Materials** | Complete hardware, electronics, and 3D printed parts list to build Chromapi from scratch. | [Chroma website](https://mowibox.github.io/chroma/en/chromapi/bom/) | **Available** |
+| **📋 Bill of Materials** | Complete hardware, electronics, and 3D printed parts list to build Chromapi from scratch. | [Chroma Website](https://mowibox.github.io/chroma/en/chromapi/bom/) | **Available** |
 | **💻 Software API** | Python control framework, hardware interfaces, and kinematic solvers. | [`/src/chromapi`](./src/chromapi/) | *Work in Progress* |
 | **📐 CAD Model** | 3D Mechanical design and robot assembly workspace. | [Onshape Document](https://cad.onshape.com/documents/3b2f6609101a115f427bb3a2/w/dda5699ddfe216cfbe74c22b/e/50bb405a7750d04ab1c412db?renderMode=0&uiState=6a7266a5caff22fc791d5f8b) | **Available** |
 | **🛠️ Hardware Utilities** | Full system diagnostics, and motor configuration tools. | [`/src/chromapi/utils`](./src/chromapi/utils) | **Available** |
