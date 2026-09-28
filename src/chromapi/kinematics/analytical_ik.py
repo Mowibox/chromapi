@@ -260,28 +260,30 @@ class AnalyticalIK:
 
         def foot_rotation(q: JointDict, leg: str) -> npt.NDArray[np.float64]:
             kinematics.forward_kinematics(q)
-            return robot.get_T_a_b(_CHASSIS_FRAME, FOOT_FRAME_NAMES[leg])[:3, :3].copy()
+            return np.asarray(robot.get_T_a_b(_CHASSIS_FRAME, FOOT_FRAME_NAMES[leg])[:3, :3], dtype=np.float64)
 
         try:
             chains: Dict[str, LegChain] = {}
             for leg in LEG_NAMES:
                 foot = kinematics.forward_kinematics(zero)[leg]  # [m]
                 names = [joint_name(leg, s) for s in JOINT_SUFFIXES]
-                points = tuple(robot.get_T_a_b(_CHASSIS_FRAME, n)[:3, 3].copy() for n in names)  # [m]
+                points = [
+                    np.asarray(robot.get_T_a_b(_CHASSIS_FRAME, n)[:3, 3], dtype=np.float64) for n in names
+                ]  # [m]
                 r0 = foot_rotation(zero, leg)
                 axes = []
                 for name in names:
                     moved = dict(zero)
                     moved[name] = delta
                     rotvec = SciRotation.from_matrix(foot_rotation(moved, leg) @ r0.T).as_rotvec()  # [rad]
-                    axes.append(rotvec / np.linalg.norm(rotvec))
+                    axes.append(np.asarray(rotvec / np.linalg.norm(rotvec), dtype=np.float64))
                 limits = [robot.get_joint_limits(n) for n in names]  # [rad]
                 chains[leg] = LegChain(
-                    points=points,  # type: ignore[arg-type]
-                    axes=tuple(axes),  # type: ignore[arg-type]
+                    points=(points[0], points[1], points[2]),
+                    axes=(axes[0], axes[1], axes[2]),
                     foot=foot,
-                    lower=tuple(float(lo) for lo, _ in limits),  # type: ignore[arg-type]
-                    upper=tuple(float(hi) for _, hi in limits),  # type: ignore[arg-type]
+                    lower=(float(limits[0][0]), float(limits[1][0]), float(limits[2][0])),
+                    upper=(float(limits[0][1]), float(limits[1][1]), float(limits[2][1])),
                 )
             ik = cls(chains)
 

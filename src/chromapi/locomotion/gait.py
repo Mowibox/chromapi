@@ -402,7 +402,8 @@ class GaitEngine:
 
         def ok(scale: float) -> bool:
             """Check if the stance feet stay within the workspace when moving at ``scale * twist`` for ``dt`` seconds."""
-            pose = _integrate_se2(self._odom_xy, self._odom_yaw, *(scale * twist), dt)  # [m], [rad]
+            vx, vy, wz = (float(c) for c in scale * twist)  # [m.s⁻¹], [m.s⁻¹], [rad.s⁻¹]
+            pose = _integrate_se2(self._odom_xy, self._odom_yaw, vx, vy, wz, dt)  # [m], [rad]
             for leg in stance:
                 p = self._chassis_from_odom(self._swing[leg].touch_down, pose)  # [m]
                 drift = float(np.linalg.norm(p[:2] - self._nominal_footprint[leg][:2]))  # [m]
