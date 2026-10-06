@@ -43,6 +43,7 @@ import numpy as np
 import numpy.typing as npt
 import yaml
 
+from chromapi.estimation.attitude import IDENTITY_QUAT, ImuMount
 from chromapi.hardware.motherboard_bridge import BridgeClient
 from chromapi.kinematics import kromatics as K
 
@@ -73,9 +74,11 @@ class RobotState:
     joint_positions: Dict[str, float] = field(default_factory=dict)  # [rad]
     joint_velocities: Dict[str, float] = field(default_factory=dict)  # [rad.s⁻¹]
     joint_loads: Dict[str, float] = field(default_factory=dict)  # [0.1 %] of rated torque (raw STS3215 load)
+    joint_currents: Dict[str, float] = field(default_factory=dict)  # [A] motor current magnitude (≥ 0)
     imu_quat_wxyz: Tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)  # unit quaternion
-    imu_gyro: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [rad.s⁻¹]
-    imu_accel: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [m.s⁻²]
+    imu_gyro: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [rad.s⁻¹] bias-corrected
+    imu_gyro_raw: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [rad.s⁻¹] as read by the sensor
+    imu_accel: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [m.s⁻²] BMI088 convention: (0, 0, -g) when level
     foot_contacts: Dict[str, bool] = field(default_factory=dict)
     voltage_v: float = 0.0  # [V]
     current_a: float = 0.0  # [A]
@@ -142,6 +145,7 @@ class HardwareBackend(RobotBackend):
         servo_config: Dict[str, Dict[str, Any]],
         port: str = "/dev/ttyAMA0",
         baudrate: int = 1_000_000,
+        imu_mount: Optional[ImuMount] = None,
     ) -> None:
         """Build the backend from the ``servos:`` section of ``config.yaml``.
 
@@ -150,8 +154,10 @@ class HardwareBackend(RobotBackend):
                 ``zero_offset_steps`` - see ``config/config.yaml``).
             port: Serial device for the RPi4 <-> STM32 UART bridge.
             baudrate: Must match the bridge firmware (1 Mbps).
+            imu_mount: IMU board offset, applied to every IMU reading (``config["imu"]``).
 
         """
+        self._imu_mount: ImuMount = imu_mount if imu_mount is not None else ImuMount()
         self._bridge = BridgeClient(port=port, baudrate=baudrate)
         self._id_map: Dict[str, int] = dict(servo_config["id_map"])
         self._sign: Dict[str, int] = dict(servo_config["sign"])
@@ -217,13 +223,13 @@ class HardwareBackend(RobotBackend):
                 self._sign[joint] * servo["speed"] / _STEPS_PER_RAD
             )
             state.joint_loads[joint] = float(servo["load"])
+            state.joint_currents[joint] = servo["current_A"]  # magnitude, no direction
 
-        quat = snapshot["imu"]["quat"]
-        state.imu_quat_wxyz = (quat[0], quat[1], quat[2], quat[3])
-        gyro = snapshot["imu"]["gyro_rps"]  # [rad.s⁻¹]
-        state.imu_gyro = (gyro[0], gyro[1], gyro[2])
-        accel = snapshot["imu"]["acc_mps2"]  # [m.s⁻²]
-        state.imu_accel = (accel[0], accel[1], accel[2])
+        # IMU readings are expressed in the chassis frame
+        state.imu_quat_wxyz = self._imu_mount.apply(snapshot["imu"]["quat"])
+        state.imu_gyro_raw = self._imu_mount.apply_vector(snapshot["imu"]["gyro_rps"])  # [rad.s⁻¹]
+        state.imu_gyro = self._imu_mount.apply_vector(snapshot["imu"]["gyro_corr_rps"])  # [rad.s⁻¹]
+        state.imu_accel = self._imu_mount.apply_vector(snapshot["imu"]["acc_mps2"])  # [m.s⁻²]
         state.foot_contacts = {
             "tl": snapshot["switches"]["TL"],
             "tr": snapshot["switches"]["TR"],
@@ -403,8 +409,10 @@ class MuJoCoBackend(RobotBackend):
             )
             gyro = self._data.sensor("imu_ang_vel").data  # [rad.s⁻¹]
             state.imu_gyro = (float(gyro[0]), float(gyro[1]), float(gyro[2]))
+            state.imu_gyro_raw = state.imu_gyro
             accel = self._data.sensor("imu_accel").data  # [m.s⁻²]
-            state.imu_accel = (float(accel[0]), float(accel[1]), float(accel[2]))
+            # MuJoCo gives the specific force (+g when level), the BMI088 its opposite.
+            state.imu_accel = (-float(accel[0]), -float(accel[1]), -float(accel[2]))
         except KeyError:
             logger.warning("MJCF model has no 'imu' sensors - IMU state left at defaults")
 
@@ -563,8 +571,12 @@ class Chromapi:
         )
 
         if backend == "hardware":
+            imu_cfg = self.config.get("imu", {})
             self.backend: RobotBackend = HardwareBackend(
-                self.config["servos"], port=port, baudrate=baudrate
+                self.config["servos"],
+                port=port,
+                baudrate=baudrate,
+                imu_mount=ImuMount(tuple(imu_cfg.get("mount_offset_wxyz", IDENTITY_QUAT))),
             )
         elif backend == "mujoco":
             self.backend = MuJoCoBackend(
