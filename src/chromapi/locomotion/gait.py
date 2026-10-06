@@ -29,10 +29,10 @@ __all__ = [
 WALK_POSTURE: Tuple[float, float, float] = (0.11, 0.09, 0.12)  # (x_reach, y_reach, body_height) [m]
 
 # Trot: diagonal pairs (tl+br), (tr+bl).
-_TROT_PHASE_OFFSETS: Dict[str, float] = {"tl": 0.0, "br": 0.0, "tr": 0.5, "bl": 0.5}  # [cycle]
+_TROT_PHASE_OFFSETS: Dict[str, float] = {"tl": 0.0, "br": 0.0, "tr": 0.5, "bl": 0.5}
 
 # Crawl gait order: bl -> tl -> br -> tr.
-_CRAWL_PHASE_OFFSETS: Dict[str, float] = {"bl": 0.75, "tl": 0.5, "br": 0.25, "tr": 0.0}  # [cycle]
+_CRAWL_PHASE_OFFSETS: Dict[str, float] = {"bl": 0.75, "tl": 0.5, "br": 0.25, "tr": 0.0}
 
 # A small epsilon for angular velocity to avoid divide-by-zero in integration
 _OMEGA_EPS = 1e-4  # [rad.s⁻¹] on a yaw rate, [rad] on a yaw step
@@ -108,7 +108,7 @@ class GaitParams:
         body_height: Nominal hip-to-foot drop [m].
         x_reach: Nominal footprint half-extent along chassis X [m].
         y_reach: Nominal footprint half-extent along chassis Y [m].
-        phase_offsets: Phase offsets for each leg, in [0, 1[ [cycle].
+        phase_offsets: Phase offsets for each leg, in [0, 1[.
         workspace_reach_m: Usable leg workspace (stride length), defined by hardware limitations [m].
         max_acceleration_mps2: Linear-velocity ramp limit [m.s⁻²].
         max_angular_acceleration_rad_s2: Angular-velocity ramp limit [rad.s⁻²].
@@ -125,7 +125,7 @@ class GaitParams:
     body_height: float = WALK_POSTURE[2]  # [m]
     x_reach: float = WALK_POSTURE[0]  # [m]
     y_reach: float = WALK_POSTURE[1]  # [m]
-    phase_offsets: Dict[str, float] = field(default_factory=lambda: dict(_CRAWL_PHASE_OFFSETS))  # [cycle]
+    phase_offsets: Dict[str, float] = field(default_factory=lambda: dict(_CRAWL_PHASE_OFFSETS))
     workspace_reach_m: float = 0.116  # [m]
     max_acceleration_mps2: float = 0.15  # [m.s⁻²]
     max_angular_acceleration_rad_s2: float = 1.0  # [rad.s⁻²]
@@ -225,7 +225,7 @@ class GaitEngine:
         }
         self._roles_by_turn = self._quarter_turn_roles()
         self._turn = 0 
-        self._phase_shift = 0.0  # [cycle]
+        self._phase_shift = 0.0
         self._prev_in_stance: Dict[str, bool] = {
             leg: self._phase(leg, 0.0) < self.params.duty_factor for leg in LEG_NAMES
         }
@@ -270,9 +270,9 @@ class GaitEngine:
     # -- phase ----------------------------------------------------------------------------
 
     def _phase(self, leg: str, t: float, turn: Optional[int] = None, shift: Optional[float] = None) -> float:
-        """Phase variable, in [0, 1[ [cycle], at time ``t`` [s]."""
+        """Phase variable, in [0,1[, at time ``t`` [s]."""
         turn = self._turn if turn is None else turn
-        shift = self._phase_shift if shift is None else shift  # [cycle]
+        shift = self._phase_shift if shift is None else shift
         role = self._roles_by_turn[turn][leg]
         cycles = t / self.params.cycle_period_s + self.params.phase_offsets[role] + shift
         return float(cycles % 1.0)
@@ -315,11 +315,11 @@ class GaitEngine:
         if turn == self._turn:
             return
         duty = self.params.duty_factor
-        tol = 1e-9  # [cycle]
-        current = {leg: self._phase(leg, self._t) for leg in LEG_NAMES}  # [cycle]
+        tol = 1e-9
+        current = {leg: self._phase(leg, self._t) for leg in LEG_NAMES}
         swinging = [leg for leg in LEG_NAMES if current[leg] >= duty]
         for pivot in swinging or LEG_NAMES:
-            shift = self._phase_shift + current[pivot] - self._phase(pivot, self._t, turn=turn)  # [cycle]
+            shift = self._phase_shift + current[pivot] - self._phase(pivot, self._t, turn=turn)
             new = {leg: self._phase(leg, self._t, turn=turn, shift=shift) for leg in LEG_NAMES}
             ok = all(
                 abs((new[leg] - current[leg] + 0.5) % 1.0 - 0.5) < tol
@@ -402,8 +402,7 @@ class GaitEngine:
 
         def ok(scale: float) -> bool:
             """Check if the stance feet stay within the workspace when moving at ``scale * twist`` for ``dt`` seconds."""
-            vx, vy, wz = (float(c) for c in scale * twist)  # [m.s⁻¹], [m.s⁻¹], [rad.s⁻¹]
-            pose = _integrate_se2(self._odom_xy, self._odom_yaw, vx, vy, wz, dt)  # [m], [rad]
+            pose = _integrate_se2(self._odom_xy, self._odom_yaw, *(scale * twist), dt)  # [m], [rad]
             for leg in stance:
                 p = self._chassis_from_odom(self._swing[leg].touch_down, pose)  # [m]
                 drift = float(np.linalg.norm(p[:2] - self._nominal_footprint[leg][:2]))  # [m]
