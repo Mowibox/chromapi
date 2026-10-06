@@ -6,6 +6,7 @@ and servomotors sequentially.
 
 import logging
 import os
+import subprocess
 
 from chromapi.hardware.motherboard_bridge import BridgeClient
 
@@ -48,7 +49,7 @@ def run_diagnostics() -> None:
             print(f"    [PASS] IMU active. Z-Accel: {acc[2]:.2f} m/s^2")
         print(f"    [INFO] Switches state: {state['switches']}")
     else:
-        print("    [FAIL] Could not retrieve global state frame (121 bytes).")
+        print("    [FAIL] Could not retrieve global state frame (159 bytes expected - firmware and SDK out of sync?).")
 
     print("\n[*] Testing Servomotor Bus (Feetech STS3215)...")
     if state:
@@ -67,7 +68,12 @@ def run_diagnostics() -> None:
                 print(f"    [WARN] Servo ID {s['id']:02d} is overheating ({s['temp_C']}°C)!")
 
     print("\n[*] Testing Audio Subsystem (I2S/ALSA)...")
-    aplay_output = os.popen("aplay -l").read()
+    aplay_output = subprocess.run(
+        ["aplay", "-l"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout
     if "sndrpigooglevoi" in aplay_output.lower():
         print("    [PASS] Custom audio soundcard detected by ALSA.")
     else:
