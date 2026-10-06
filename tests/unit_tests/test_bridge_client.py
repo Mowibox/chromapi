@@ -85,16 +85,8 @@ def test_set_positions_resets_input_buffer(bridge: BridgeClient, mock_serial: Du
 
 def test_set_positions_decodes_state_snapshot(bridge: BridgeClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Verifies that set_positions() correctly decodes a STATE_SNAPSHOT reply into a structured dict."""
-    servo_fields = [100, 0, 0, 25, 60] * 12  # pos, speed, load, temp_C, volt_V(raw, ->6.0V)
-    payload = struct.pack(
-        '<iii' + ('HhhBB' * 12) + 'hhhhhhhhhhB',
-        7400000, 1500000, 11100000,
-        *servo_fields,
-        0, 0, 981, 0, 0, 0, 32767, 0, 0, 0,  # acc(x,y,z), gyro(x,y,z), quat(w,x,y,z)
-        0,  # switches_mask
-    )
     monkeypatch.setattr(bridge, '_send_frame', lambda *args, **kwargs: None)
-    monkeypatch.setattr(bridge, '_read_reply', lambda timeout=None: (Response.STATE_SNAPSHOT, payload))
+    monkeypatch.setattr(bridge, '_read_reply', lambda timeout=None: (Response.STATE_SNAPSHOT, _snapshot_payload()))
 
     state = bridge.set_positions([0] * 12)
 
@@ -126,3 +118,45 @@ def test_get_power_parsing(bridge: BridgeClient, monkeypatch: pytest.MonkeyPatch
     assert power[0] == 7.4   # Voltage in Volts
     assert power[1] == 1.5   # Current in Amperes
     assert power[2] == 11.1  # Power in Watts
+
+def _snapshot_payload(gyro_corr=(0, 0, 0), servo_current=(0,) * 12) -> bytes:
+    """159-byte STATE_SNAPSHOT payload."""
+    return struct.pack(
+        '<iii' + ('HhhBB' * 12) + 'hhhhhhhhhhB' + 'hhh' + 'h' * 12,
+        7400000, 1500000, 11100000,
+        *([100, 0, 0, 25, 60] * 12),  # pos, speed, load, temp_C, volt_V(raw, ->6.0V)
+        0, 0, -981, 12, -5, 3, 32767, 0, 0, 0,  # acc, raw gyro, quat
+        0,  # switches_mask
+        *gyro_corr,
+        *servo_current,
+    )
+
+
+def test_get_state_decodes_corrected_gyro(bridge: BridgeClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The snapshot carries the bias-corrected gyro after the switches."""
+    monkeypatch.setattr(bridge, '_send_frame', lambda *args, **kwargs: None)
+    monkeypatch.setattr(bridge, '_read_reply', lambda timeout=None: (Response.STATE_SNAPSHOT, _snapshot_payload((2, -1, 0))))
+
+    state = bridge.get_state()
+
+    assert state is not None
+    assert state["imu"]["gyro_rps"] == pytest.approx([0.012, -0.005, 0.003])
+    assert state["imu"]["gyro_corr_rps"] == pytest.approx([0.002, -0.001, 0.0])
+
+
+def test_get_state_decodes_servo_current(bridge: BridgeClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The snapshot ends with the signed per-servo Present_Current (6.5 mA/unit)."""
+    currents = [100, -100] + [0] * 10
+    monkeypatch.setattr(bridge, '_send_frame', lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        bridge, '_read_reply',
+        lambda timeout=None: (Response.STATE_SNAPSHOT, _snapshot_payload(servo_current=currents)),
+    )
+
+    state = bridge.get_state()
+
+    assert state is not None
+    assert state["servos"][0]["current_A"] == pytest.approx(0.65)
+    assert state["servos"][1]["current_A"] == pytest.approx(-0.65)
+    assert state["servos"][2]["current_A"] == 0.0
+    

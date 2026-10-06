@@ -49,7 +49,8 @@ def projected_gravity(q: Sequence[float]) -> npt.NDArray[np.float64]:
     )
 
 
-def roll_pitch_from_gravity(g_body: Sequence[float]) -> Tuple[float, float]:
+
+def roll_pitch_from_gravity(g_body: npt.NDArray[np.float64]) -> Tuple[float, float]:
     """(roll, pitch) [rad] of the ZYX (yaw-pitch-roll) convention, from projected gravity."""
     gx, gy, gz = g_body
     roll = math.atan2(-gy, -gz)
