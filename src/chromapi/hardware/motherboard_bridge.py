@@ -18,6 +18,11 @@ BRIDGE_SYNC_2 = 0xAA
 # Reply timeout for the two hot-path calls (get_state()/set_positions())
 _HOT_PATH_TIMEOUT_S = 0.05  # [s]
 
+# power, 12 x servo, imu acc/gyro/quat, switches, bias-corrected gyro, 12 x servo current
+_SNAPSHOT_FORMAT = '<iii' + ('HhhBB' * 12) + 'hhhhhhhhhhB' + 'hhh' + 'h' * 12
+_SNAPSHOT_LEN = struct.calcsize(_SNAPSHOT_FORMAT)  # 159 bytes
+_SERVO_CURRENT_A_PER_UNIT = 0.0065  # STS3215 Present_Current resolution [A]
+
 
 class Command(IntEnum):
     """Available bridge commands."""
@@ -223,14 +228,15 @@ class BridgeClient:
 
     @staticmethod
     def _decode_state_snapshot(payload: bytes) -> Dict[str, Any]:
-        """Decode a 129-byte STATE_SNAPSHOT payload (shared by get_state() & set_positions()).
+        """Decode a STATE_SNAPSHOT payload (shared by get_state() & set_positions()).
 
         Units of the returned fields: ``voltage_V`` [V], ``current_A`` [A], ``power_W`` [W];
         per servo ``pos`` [step], ``speed`` [step.s⁻¹], ``load`` [0.1 %] of rated torque,
-        ``temp_C`` [°C], ``volt_V`` [V]; ``acc_mps2`` [m.s⁻²], ``gyro_rps`` [rad.s⁻¹], ``quat``
+        ``temp_C`` [°C], ``volt_V`` [V], ``current_A`` [A] (magnitude, 50 Hz); ``acc_mps2`` [m.s⁻²],
+        ``gyro_rps`` (raw) and ``gyro_corr_rps`` (Mahony bias removed) [rad.s⁻¹], ``quat``
         unit quaternion (w, x, y, z).
         """
-        data = struct.unpack('<iii' + ('HhhBB' * 12) + 'hhhhhhhhhhB', payload)
+        data = struct.unpack(_SNAPSHOT_FORMAT, payload)
 
         return {
             "power": {
@@ -246,12 +252,14 @@ class BridgeClient:
                     "load":   data[5 + i * 5],
                     "temp_C": data[6 + i * 5],
                     "volt_V": data[7 + i * 5] / 10.0,
+                    "current_A": data[77 + i] * _SERVO_CURRENT_A_PER_UNIT,
                 }
                 for i in range(12)
             ],
             "imu": {
                 "acc_mps2": [data[63] / 100.0,  data[64] / 100.0,  data[65] / 100.0],
                 "gyro_rps": [data[66] / 1000.0, data[67] / 1000.0, data[68] / 1000.0],
+                "gyro_corr_rps": [data[74] / 1000.0, data[75] / 1000.0, data[76] / 1000.0],
                 "quat":     [data[69] / 32767.0, data[70] / 32767.0, data[71] / 32767.0, data[72] / 32767.0],
             },
             "switches": {
@@ -273,7 +281,7 @@ class BridgeClient:
         self._send_frame(Command.SET_POSITIONS, struct.pack('<12H', *raw_steps))
         try:
             cmd, payload = self._read_reply(timeout=_HOT_PATH_TIMEOUT_S)
-            if cmd != Response.STATE_SNAPSHOT or len(payload) != 129:
+            if cmd != Response.STATE_SNAPSHOT or len(payload) != _SNAPSHOT_LEN:
                 self.logger.warning(f"set_positions: unexpected reply (cmd={cmd}, {len(payload)} bytes)")
                 return None
             return self._decode_state_snapshot(payload)
@@ -289,7 +297,7 @@ class BridgeClient:
         self._send_frame(Command.STATE_FEEDBACK)
         try:
             cmd, payload = self._read_reply(timeout=_HOT_PATH_TIMEOUT_S)
-            if cmd != Response.STATE_SNAPSHOT or len(payload) != 129:
+            if cmd != Response.STATE_SNAPSHOT or len(payload) != _SNAPSHOT_LEN:
                 self.logger.warning(f"Unexpected state snapshot size: {len(payload)} bytes")
                 return None
             return self._decode_state_snapshot(payload)
