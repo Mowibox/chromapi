@@ -1,11 +1,13 @@
 <default>
     <default class="sts3215">
         <geom contype="0" conaffinity="0"/>
-        <joint damping="0.60" frictionloss="0.052" armature="0.028"/>
-        <position kp="17.8" kv="0.0" forcerange="-3.35 3.35"/>
+        <!-- BAM feetech_sts3215_7_4V, model m6, via bam.to_mujoco (vin=7.4 V, firmware P=32):
+             damping = friction_viscous + kt^2/R, frictionloss = friction_base, forcerange = vin*kt/R -->
+        <joint damping="0.619" frictionloss="0.0533" armature="0.0216"/>
+        <position kp="17.66" kv="0.0" forcerange="-3.43 3.43"/>
     </default>
     <default class="backlash">
-        <!-- +/- 0.5° of backlash -->
+        <!-- +/- 0.5° of backlash. Not used yet: no joint references this class. -->
         <joint damping="0.01" frictionloss="0" armature="0.01" limited="true"
             range="-0.008726646259971648 0.008726646259971648"/>
     </default>
