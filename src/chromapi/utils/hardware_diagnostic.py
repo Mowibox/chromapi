@@ -17,7 +17,7 @@ def run_diagnostics() -> None:
     print(" CHROMAPI HARDWARE DIAGNOSTIC TOOL")
     print("====================================================\n")
 
-    bridge = BridgeClient(port='/dev/ttyAMA0', baudrate=1000000)
+    bridge = BridgeClient(port='/dev/ttyAMA0')
     
     print("[*] Testing UART Bridge Connection...")
     if not bridge.connect():
@@ -31,16 +31,16 @@ def run_diagnostics() -> None:
         return
 
     print("\n[*] Testing Power Monitor (INA226)...")
-    power = bridge.get_power()  # ([V], [A], [W])
-    if power:
-        print(f"    [PASS] Bus Voltage: {power[0]:.2f} V | Current: {power[1]:.2f} A")
-        if power[0] < 6.0:
+    state = bridge.get_state()
+    if state and state['power']['voltage_V'] > 0.0:
+        power = state['power']
+        print(f"    [PASS] Bus Voltage: {power['voltage_V']:.2f} V | Current: {power['current_A']:.2f} A")
+        if power['voltage_V'] < 6.0:
             print("    [WARN] Battery voltage is critically low (< 6.0V)!")
     else:
         print("    [FAIL] INA226 communication failed. Check I2C bus on PCB.")
 
     print("\n[*] Testing IMU & Switches via Feedback Stream...")
-    state = bridge.get_state()
     if state:
         acc = state['imu']['acc_mps2']  # [m.s⁻²]
         if acc == [0.0, 0.0, 0.0]:

@@ -44,7 +44,7 @@ import numpy.typing as npt
 import yaml
 
 from chromapi.estimation.attitude import IDENTITY_QUAT, ImuMount
-from chromapi.hardware.motherboard_bridge import BridgeClient
+from chromapi.hardware.motherboard_bridge import DEFAULT_BAUDRATE, BridgeClient
 from chromapi.kinematics import kromatics as K
 
 if TYPE_CHECKING:
@@ -84,6 +84,7 @@ class RobotState:
     current_a: float = 0.0  # [A]
     power_w: float = 0.0  # [W]
     timestamp: float = 0.0  # [s]
+    mcu_time_us: int = 0  # [µs] STM32 time of the servo read; 0 in simulation
 
 # ========================================================================================
 # Backend abstraction - real hardware vs MuJoCo, behind one interface
@@ -144,7 +145,7 @@ class HardwareBackend(RobotBackend):
         self,
         servo_config: Dict[str, Dict[str, Any]],
         port: str = "/dev/ttyAMA0",
-        baudrate: int = 1_000_000,
+        baudrate: int = DEFAULT_BAUDRATE,
         imu_mount: Optional[ImuMount] = None,
     ) -> None:
         """Build the backend from the ``servos:`` section of ``config.yaml``.
@@ -153,7 +154,7 @@ class HardwareBackend(RobotBackend):
             servo_config: The ``config["servos"]`` mapping (``id_map``, ``sign``,
                 ``zero_offset_steps`` - see ``config/config.yaml``).
             port: Serial device for the RPi4 <-> STM32 UART bridge.
-            baudrate: Must match the bridge firmware (1 Mbps).
+            baudrate: Must match the bridge firmware (2 Mbps).
             imu_mount: IMU board offset, applied to every IMU reading (``config["imu"]``).
 
         """
@@ -166,7 +167,6 @@ class HardwareBackend(RobotBackend):
         missing = set(K.JOINT_NAMES) - set(self._id_map)
         if missing:
             raise ValueError(f"servo config is missing joints: {sorted(missing)}")
-        self._cached_snapshot: Optional[Dict[str, Any]] = None
 
     def connect(self) -> bool:
         """Open the UART serial port to the STM32 bridge."""
@@ -182,7 +182,7 @@ class HardwareBackend(RobotBackend):
             + self._sign[joint] * angle_rad * _STEPS_PER_RAD
             + self._zero_offset[joint]
         )
-        return int(np.clip(round(raw), 0, STS3215_STEPS_PER_REV - 1))
+        return min(max(round(raw), 0), STS3215_STEPS_PER_REV - 1) 
 
     def _steps_to_rad(self, joint: str, raw_steps: int) -> float:
         raw = raw_steps - STS3215_CENTER_STEP - self._zero_offset[joint]  # [step]
@@ -196,22 +196,15 @@ class HardwareBackend(RobotBackend):
             if servo_id is None:
                 continue
             raw_steps[servo_id - 1] = self._rad_to_steps(joint, angle)
-        snapshot = self._bridge.set_positions(raw_steps)
-        self._cached_snapshot = snapshot
-        return snapshot is not None
+        return self._bridge.set_positions(raw_steps)
 
     def read_state(self) -> Optional[RobotState]:
         """Return a :class:`RobotState`."""
-        snapshot: Optional[Dict[str, Any]]
-        if self._cached_snapshot is not None:
-            snapshot = self._cached_snapshot
-            self._cached_snapshot = None
-        else:
-            snapshot = self._bridge.get_state()
+        snapshot = self._bridge.get_state()
         if snapshot is None:
             return None
 
-        state = RobotState(timestamp=time.monotonic())
+        state = RobotState(timestamp=time.monotonic(), mcu_time_us=snapshot["t_us"])
         for servo in snapshot["servos"]:
             joint = self._id_to_joint.get(servo["id"])
             if joint is None:
@@ -244,13 +237,11 @@ class HardwareBackend(RobotBackend):
     def set_torque_enabled(
         self, enabled: bool, joints: Optional[Sequence[str]] = None
     ) -> None:
-        """Write the STS3215 ``TORQUE_SWITCH`` register (0x28) on the given joints."""
+        """Switch STS3215 torque on the given joints."""
         target_joints = joints if joints is not None else K.JOINT_NAMES
-        for joint in target_joints:
-            servo_id = self._id_map.get(joint)
-            if servo_id is None:
-                continue
-            self._bridge.write_servo_register(servo_id, 0x28, 1, 1 if enabled else 0)
+        servo_ids = [self._id_map[j] for j in target_joints if j in self._id_map]
+        if servo_ids:
+            self._bridge.set_torque(enabled, servo_ids)
 
     def set_led_all(self, r: int, g: int, b: int) -> None:
         """Set every ring LED via a single bridge frame."""
@@ -543,7 +534,7 @@ class Chromapi:
         config_path: Union[str, Path] = DEFAULT_CONFIG_PATH,
         mjcf_path: Union[str, Path] = DEFAULT_MJCF_PATH,
         port: str = "/dev/ttyAMA0",
-        baudrate: int = 1_000_000,
+        baudrate: int = DEFAULT_BAUDRATE,
         launch_viewer: bool = False,
         key_callback: Optional[Callable[[int], None]] = None,
     ) -> None:
@@ -612,6 +603,11 @@ class Chromapi:
                     "Could not read initial joint state - holding the built-in ZERO_POSE "
                     "(legs splayed) until the first command; call wake_up() promptly."
                 )
+
+        try:
+            __import__("sounddevice")
+        except (ImportError, OSError):
+            pass
 
         self._connected = True
         self._stop_event.clear()
