@@ -1,38 +1,61 @@
-import pytest
+import binascii
 import struct
+
+import pytest
+
 from chromapi.hardware.motherboard_bridge import BridgeClient, Command, Response
 
+
 class DummySerial:
-    """Minimalist serial port."""
+    """Byte-stream serial port: tests append to ``rx``, the client reads from it."""
+
     def __init__(self) -> None:
         self.is_open: bool = True
-        self.written_data: bytes = b''
-        self.rx_buffer: list[bytes] = []
-        self.reset_input_buffer_calls: int = 0
+        self.written: list[bytes] = []
+        self.rx = bytearray()
+
+    @property
+    def in_waiting(self) -> int:
+        return len(self.rx)
 
     def reset_input_buffer(self) -> None:
-        self.reset_input_buffer_calls += 1
-        
-    def flush(self) -> None: 
-        pass
-        
-    def close(self) -> None: 
+        self.rx.clear()
+
+    def close(self) -> None:
         self.is_open = False
 
     def write(self, data: bytes) -> None:
-        self.written_data = data
+        self.written.append(data)
 
     def read(self, size: int = 1) -> bytes:
-        if not self.rx_buffer:
-            return b''
-        
-        chunk = self.rx_buffer[0][:size]
-        self.rx_buffer[0] = self.rx_buffer[0][size:]
-
-        if not self.rx_buffer[0]:
-            self.rx_buffer.pop(0)
-            
+        chunk = bytes(self.rx[:size])
+        del self.rx[:size]
         return chunk
+
+
+def _frame(cmd: int, payload: bytes = b'') -> bytes:
+    body = bytes([len(payload) + 1, cmd]) + payload
+    return b'\x55\xaa' + body + struct.pack('<H', binascii.crc_hqx(body, 0xFFFF))
+
+
+def _snapshot_payload(seq=0, t_us=1000, gyro_corr=(0, 0, 0), servo_current=(0,) * 12, fresh=0x0FFF) -> bytes:
+    """168-byte protocol v2 STATE_SNAPSHOT payload."""
+    servos = []
+    for i in range(12):
+        servos += [100, 0, 0, 25, 60, servo_current[i]]  # pos, speed, load, temp_C, volt(raw->6.0V), current
+    return struct.pack(
+        '<BIH' + 'iii' + ('HhhBBh' * 12) + 'hhh' * 3 + 'hhhh' + 'BH',
+        seq, t_us, 3100,
+        7400000, 1500000, 11100000,
+        *servos,
+        0, 0, -981,  # acc
+        12, -5, 3,   # raw gyro
+        *gyro_corr,
+        32767, 0, 0, 0,  # quat
+        0,  # switches
+        fresh,
+    )
+
 
 @pytest.fixture
 def mock_serial(monkeypatch: pytest.MonkeyPatch) -> DummySerial:
@@ -41,122 +64,96 @@ def mock_serial(monkeypatch: pytest.MonkeyPatch) -> DummySerial:
     monkeypatch.setattr("serial.Serial", lambda *args, **kwargs: dummy)
     return dummy
 
+
 @pytest.fixture
 def bridge(mock_serial: DummySerial) -> BridgeClient:
-    """Provides an isolated BridgeClient instance for each test."""
-    client = BridgeClient(port='/dev/dummy', timeout=0.1)
+    client = BridgeClient(port='/dev/dummy', timeout=0.02)
     client.connect()
     return client
 
-def test_calc_crc(bridge: BridgeClient) -> None:
-    """Test CRC calculation (successive XOR)."""
-    data = bytes([0x03, 0x01, 0xFF])
-    assert bridge._calc_crc(data) == 0xFD
+
+def test_crc_matches_firmware_variant() -> None:
+    """CRC-16/CCITT-FALSE check value - the firmware's crc16() must produce the same."""
+    assert binascii.crc_hqx(b'123456789', 0xFFFF) == 0x29B1
+
 
 def test_send_frame_format(bridge: BridgeClient, mock_serial: DummySerial) -> None:
-    """Verifies that _send_frame generates the exact byte sequence expected."""
-    bridge.set_led_color_all(10, 20, 30)
-    
-    crc_data = bytes([0x05, 0x07, 0x01, 10, 20, 30])
-    expected_crc = bridge._calc_crc(crc_data)
-    expected_frame = bytes([0x55, 0xAA]) + crc_data + bytes([expected_crc])
-    
-    assert mock_serial.written_data == expected_frame
-
-def test_read_reply_timeout(bridge: BridgeClient, mock_serial: DummySerial) -> None:
-    """Verifies that a TimeoutError is raised if the serial port does not respond."""
-    mock_serial.rx_buffer = []
-    with pytest.raises(TimeoutError, match="Timeout waiting for reply header"):
-        bridge._read_reply()
-
-def test_read_reply_crc_mismatch(bridge: BridgeClient, mock_serial: DummySerial) -> None:
-    """Verifies the rejection of a corrupted frame (invalid CRC)."""
-    mock_serial.rx_buffer = [b'\x55\xAA\x01\x80\x00']
-    with pytest.raises(ValueError, match="CRC mismatch"):
-        bridge._read_reply()
-
-def test_set_positions_resets_input_buffer(bridge: BridgeClient, mock_serial: DummySerial) -> None:
-    """Verifies that set_positions() calls reset_input_buffer() before sending the command."""
-    mock_serial.rx_buffer = []  # no reply queued - set_positions() will time out, that's fine here
-    calls_before = mock_serial.reset_input_buffer_calls  # connect() itself already made one call
-    bridge.set_positions([0] * 12)
-    assert mock_serial.reset_input_buffer_calls == calls_before + 1
+    mock_serial.rx += _frame(Response.OK)  # stale ACK from before the request: must be ignored
+    assert not bridge.set_led_color_all(10, 20, 30)
+    assert mock_serial.written[-1] == _frame(Command.SET_LED_COLOR, bytes([0x01, 10, 20, 30]))
 
 
-def test_set_positions_decodes_state_snapshot(bridge: BridgeClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verifies that set_positions() correctly decodes a STATE_SNAPSHOT reply into a structured dict."""
-    monkeypatch.setattr(bridge, '_send_frame', lambda *args, **kwargs: None)
-    monkeypatch.setattr(bridge, '_read_reply', lambda timeout=None: (Response.STATE_SNAPSHOT, _snapshot_payload()))
+def test_set_positions_is_fire_and_forget(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    assert bridge.set_positions(list(range(12))) is True
+    assert mock_serial.written[-1] == _frame(Command.SET_POSITIONS, struct.pack('<12H', *range(12)))
 
-    state = bridge.set_positions([0] * 12)
+
+def test_set_torque_frame(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    assert bridge.set_torque(True, [1, 12])
+    assert mock_serial.written[-1] == _frame(Command.SET_TORQUE, struct.pack('<HH', 0x0801, 0x0801))
+    assert bridge.set_torque(False)
+    assert mock_serial.written[-1] == _frame(Command.SET_TORQUE, struct.pack('<HH', 0x0FFF, 0))
+    assert bridge.set_torque(False, [3])
+    assert mock_serial.written[-1] == _frame(Command.SET_TORQUE, struct.pack('<HH', 0x0004, 0))
+    with pytest.raises(ValueError):
+        bridge.set_torque(True, [13])
+
+
+def test_command_reply_skips_streamed_snapshots(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    """An ACK interleaved with the stream is found, and the snapshot seen meanwhile is kept."""
+    bridge._send_frame = lambda *a, **k: mock_serial.rx.extend(  # reply arrives after the request
+        _frame(Response.STATE_SNAPSHOT, _snapshot_payload(seq=7)) + _frame(Response.OK))
+    assert bridge.ping()
+    state = bridge.get_state(timeout=0.0)
+    assert state is not None and state["seq"] == 7
+
+
+def test_get_state_returns_freshest(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    for seq in (1, 2, 3):
+        mock_serial.rx += _frame(Response.STATE_SNAPSHOT, _snapshot_payload(seq=seq))
+    state = bridge.get_state()
+    assert state is not None and state["seq"] == 3
+    assert bridge.get_state(timeout=0.01) is None  # nothing new since: never returns a frame twice
+
+
+def test_resync_after_garbage_and_bad_crc(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    bad = bytearray(_frame(Response.STATE_SNAPSHOT, _snapshot_payload(seq=1)))
+    bad[10] ^= 0xFF
+    mock_serial.rx += b'\x00\x55\x13' + bad + _frame(Response.STATE_SNAPSHOT, _snapshot_payload(seq=2))
+    state = bridge.get_state()
+    assert state is not None and state["seq"] == 2
+
+
+def test_get_state_timeout(bridge: BridgeClient) -> None:
+    assert bridge.get_state(timeout=0.01) is None
+
+
+def test_snapshot_decoding(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    currents = [100, -100] + [0] * 10
+    mock_serial.rx += _frame(Response.STATE_SNAPSHOT, _snapshot_payload(
+        t_us=123456, gyro_corr=(2, -1, 0), servo_current=currents, fresh=0b101))
+    state = bridge.get_state()
 
     assert state is not None
+    assert state["t_us"] == 123456 and state["cycle_us"] == 3100
     assert state["power"]["voltage_V"] == 7.4
     assert state["servos"][0]["pos"] == 100
     assert state["servos"][0]["volt_V"] == 6.0
+    assert state["servos"][0]["current_A"] == pytest.approx(0.65)
+    assert state["servos"][1]["current_A"] == pytest.approx(-0.65)
+    assert [s["fresh"] for s in state["servos"][:3]] == [True, False, True]
+    assert state["imu"]["gyro_rps"] == pytest.approx([0.012, -0.005, 0.003])
+    assert state["imu"]["gyro_corr_rps"] == pytest.approx([0.002, -0.001, 0.0])
     assert state["imu"]["quat"] == pytest.approx([1.0, 0.0, 0.0, 0.0])
 
 
-def test_set_positions_rejects_unexpected_reply(bridge: BridgeClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verifies that set_positions() returns None if the reply is not a STATE_SNAPSHOT."""
-    monkeypatch.setattr(bridge, '_send_frame', lambda *args, **kwargs: None)
-    monkeypatch.setattr(bridge, '_read_reply', lambda timeout=None: (Response.OK, b''))
-
-    assert bridge.set_positions([0] * 12) is None
+def test_read_servo_register(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    bridge._send_frame = lambda *a, **k: mock_serial.rx.extend(_frame(Response.SERVO_REG_VALUE, b'\x34\x12'))
+    assert bridge.read_servo_register(1, 0x38, 2) == 0x1234
 
 
-def test_get_power_parsing(bridge: BridgeClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Tests struct parsing without relying on low-level _read_reply logic."""
-    simulated_payload = struct.pack('<iii', 7400000, 1500000, 11100000)
-    
-    monkeypatch.setattr(bridge, '_send_frame', lambda *args, **kwargs: None)
-    monkeypatch.setattr(bridge, '_read_reply', lambda: (Response.POWER_READING, simulated_payload))
-    
-    power = bridge.get_power()
-    
-    assert power is not None
-    assert power[0] == 7.4   # Voltage in Volts
-    assert power[1] == 1.5   # Current in Amperes
-    assert power[2] == 11.1  # Power in Watts
-
-def _snapshot_payload(gyro_corr=(0, 0, 0), servo_current=(0,) * 12) -> bytes:
-    """159-byte STATE_SNAPSHOT payload."""
-    return struct.pack(
-        '<iii' + ('HhhBB' * 12) + 'hhhhhhhhhhB' + 'hhh' + 'h' * 12,
-        7400000, 1500000, 11100000,
-        *([100, 0, 0, 25, 60] * 12),  # pos, speed, load, temp_C, volt_V(raw, ->6.0V)
-        0, 0, -981, 12, -5, 3, 32767, 0, 0, 0,  # acc, raw gyro, quat
-        0,  # switches_mask
-        *gyro_corr,
-        *servo_current,
-    )
-
-
-def test_get_state_decodes_corrected_gyro(bridge: BridgeClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The snapshot carries the bias-corrected gyro after the switches."""
-    monkeypatch.setattr(bridge, '_send_frame', lambda *args, **kwargs: None)
-    monkeypatch.setattr(bridge, '_read_reply', lambda timeout=None: (Response.STATE_SNAPSHOT, _snapshot_payload((2, -1, 0))))
-
-    state = bridge.get_state()
-
-    assert state is not None
-    assert state["imu"]["gyro_rps"] == pytest.approx([0.012, -0.005, 0.003])
-    assert state["imu"]["gyro_corr_rps"] == pytest.approx([0.002, -0.001, 0.0])
-
-
-def test_get_state_decodes_servo_current(bridge: BridgeClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The snapshot ends with the signed per-servo Present_Current (6.5 mA/unit)."""
-    currents = [100, -100] + [0] * 10
-    monkeypatch.setattr(bridge, '_send_frame', lambda *args, **kwargs: None)
-    monkeypatch.setattr(
-        bridge, '_read_reply',
-        lambda timeout=None: (Response.STATE_SNAPSHOT, _snapshot_payload(servo_current=currents)),
-    )
-
-    state = bridge.get_state()
-
-    assert state is not None
-    assert state["servos"][0]["current_A"] == pytest.approx(0.65)
-    assert state["servos"][1]["current_A"] == pytest.approx(-0.65)
-    assert state["servos"][2]["current_A"] == 0.0
-    
+def test_command_error_and_timeout(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    bridge._send_frame = lambda *a, **k: mock_serial.rx.extend(_frame(Response.ERROR))
+    assert bridge.ping_servo(3) is False
+    bridge._send_frame = lambda *a, **k: None
+    assert bridge.ping_servo(3) is False

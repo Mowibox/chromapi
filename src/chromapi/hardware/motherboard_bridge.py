@@ -4,24 +4,33 @@ Provides the UART communication interface between the Raspberry Pi and the STM32
 using a custom protocol.
 """
 
+import binascii
 import logging
 import struct
 import time
 from enum import IntEnum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import serial
 
-BRIDGE_SYNC_1 = 0x55
-BRIDGE_SYNC_2 = 0xAA
+BRIDGE_SYNC = b'\x55\xaa'
+DEFAULT_BAUDRATE = 2_000_000
 
-# Reply timeout for the two hot-path calls (get_state()/set_positions())
+# Reply timeout for get_state(): a snapshot arrives every 5 ms, 50 ms = 10 missed cycles
 _HOT_PATH_TIMEOUT_S = 0.05  # [s]
+# Blocking granularity of a single serial read, set once on the port
+_READ_POLL_S = 0.002  # [s]
 
-# power, 12 x servo, imu acc/gyro/quat, switches, bias-corrected gyro, 12 x servo current
-_SNAPSHOT_FORMAT = '<iii' + ('HhhBB' * 12) + 'hhhhhhhhhhB' + 'hhh' + 'h' * 12
-_SNAPSHOT_LEN = struct.calcsize(_SNAPSHOT_FORMAT)  # 159 bytes
+# seq, t_us, cycle_us, power, 12 x servo (pos, speed, load, temp, volt, current),
+# imu acc/gyro/gyro_corr/quat, switches, servo fresh mask
+_SNAPSHOT_FORMAT = '<BIH' + 'iii' + ('HhhBBh' * 12) + 'hhh' * 3 + 'hhhh' + 'BH'
+_SNAPSHOT_LEN = struct.calcsize(_SNAPSHOT_FORMAT)  # 168 bytes
 _SERVO_CURRENT_A_PER_UNIT = 0.0065  # STS3215 Present_Current resolution [A]
+
+
+def _crc16(data: bytes) -> int:
+    """Compute the CRC-16-CCITT checksum of the given data."""
+    return binascii.crc_hqx(data, 0xFFFF)
 
 
 class Command(IntEnum):
@@ -29,13 +38,11 @@ class Command(IntEnum):
 
     PING_BRIDGE          = 0x01
     SET_POSITIONS        = 0x02
-    STATE_FEEDBACK       = 0x03
+    SET_TORQUE           = 0x03
     PING_SERVO           = 0x04
-    GET_SERVO_INFO       = 0x05
     SET_SERVO_ID         = 0x06
     SET_LED_COLOR        = 0x07
     SET_LED_RING_BULK    = 0x08
-    GET_POWER            = 0x09
     WRITE_SERVO_REGISTER = 0x0A
     READ_SERVO_REGISTER  = 0x0B
 
@@ -44,7 +51,6 @@ class Response(IntEnum):
 
     OK              = 0x80
     ERROR           = 0x81
-    POWER_READING   = 0x82
     STATE_SNAPSHOT  = 0x83
     SERVO_REG_VALUE = 0x84
 
@@ -59,13 +65,13 @@ LED_RING_COUNT = 18
 class BridgeClient:
     """Client class to interact with the STM32 Chromapi Motherboard."""
 
-    def __init__(self, port: str = '/dev/ttyAMA0', baudrate: int = 1000000, timeout: float = 1.0) -> None:
+    def __init__(self, port: str = '/dev/ttyAMA0', baudrate: int = DEFAULT_BAUDRATE, timeout: float = 1.0) -> None:
         """Initialize the BridgeClient with serial port parameters.
 
         Args:
             port: Serial device of the RPi4 <-> STM32 UART bridge.
             baudrate: UART baud rate (must match the firmware).
-            timeout: Default reply timeout [s].
+            timeout: Default timeout for requests [s].
 
         """
         self.port: str = port
@@ -73,11 +79,13 @@ class BridgeClient:
         self.timeout: float = timeout  # [s]
         self.serial: Optional[serial.Serial] = None
         self.logger: logging.Logger = logging.getLogger("BridgeClient")
+        self._rx = bytearray()
+        self._latest: Optional[bytes] = None  # newest snapshot payload not yet returned
 
     def connect(self) -> bool:
         """Attempt to open the serial port connection."""
         try:
-            self.serial = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
+            self.serial = serial.Serial(self.port, self.baudrate, timeout=_READ_POLL_S)
             self.serial.reset_input_buffer()
             self.logger.info(f"Connected to bridge on {self.port} at {self.baudrate} baud.")
             return True
@@ -90,282 +98,206 @@ class BridgeClient:
         if self.serial and self.serial.is_open:
             self.serial.close()
 
-    def _calc_crc(self, data: bytes) -> int:
-        """Calculate the XOR checksum for the given byte array."""
-        crc = 0
-        for b in data:
-            crc ^= b
-        return crc
-
-    def _send_frame(self, cmd: Command, payload: bytes = b'') -> None:
+    def _send_frame(self, cmd: int, payload: bytes = b'') -> None:
         """Wrap and send a command frame over UART."""
         if self.serial is None or not self.serial.is_open:
             raise ConnectionError("Serial port is not open.")
+        body = bytes([len(payload) + 1, cmd]) + payload
+        self.serial.write(BRIDGE_SYNC + body + struct.pack('<H', _crc16(body)))
 
-        length_byte = len(payload) + 1
-        crc_data = bytes([length_byte, cmd]) + payload
-        frame = bytes([BRIDGE_SYNC_1, BRIDGE_SYNC_2]) + crc_data + bytes([self._calc_crc(crc_data)])
-        self.serial.write(frame)
+    def _pop_frame(self) -> Optional[Tuple[int, bytes]]:
+        """Extract the next valid frame from the RX buffer, or None if none is complete yet."""
+        rx = self._rx
+        while True:
+            start = rx.find(BRIDGE_SYNC)
+            if start < 0:
+                del rx[:-1]  # keep a trailing 0x55, it may be the start of the next sync
+                return None
+            del rx[:start]
+            if len(rx) < 3:
+                return None
+            n = rx[2]
+            if len(rx) < n + 5:
+                return None
+            body = bytes(rx[2:3 + n])
+            if n == 0 or rx[3 + n] | rx[4 + n] << 8 != _crc16(body):
+                del rx[:1]  # bad frame: resync on the next sync pattern
+                continue
+            del rx[:n + 5]
+            return body[1], body[2:]
 
-    def _read_reply(self, timeout: Optional[float] = None) -> Tuple[int, bytes]:
-        """Read and parse an incoming reply frame from UART."""
-        if self.serial is None:
-            raise ConnectionError("Serial port is not initialized.")
-        serial_port = self.serial  
+    def _drain(self) -> None:
+        """Parse everything already received without blocking, keeping the newest snapshot."""
+        assert self.serial is not None
+        self._rx += self.serial.read(self.serial.in_waiting)
+        while (frame := self._pop_frame()) is not None:
+            if frame[0] == Response.STATE_SNAPSHOT:
+                self._latest = frame[1]
 
-        has_timeout_attr = hasattr(serial_port, 'timeout')
-        old_timeout = getattr(serial_port, 'timeout', None)  # [s]
-        budget = timeout if timeout is not None else (old_timeout if old_timeout is not None else self.timeout)  # [s]
-        deadline = time.monotonic() + budget  # [s]
+    def _wait_for(self, want: Tuple[int, ...], timeout: float) -> Tuple[int, bytes]:
+        """Block until a frame whose cmd is in ``want`` arrives; snapshots seen meanwhile are kept."""
+        assert self.serial is not None
+        deadline = time.monotonic() + timeout  # [s]
+        while True:
+            frame = self._pop_frame()
+            if frame is None:
+                if time.monotonic() > deadline:
+                    raise TimeoutError("Timeout waiting for a bridge frame.")
+                self._rx += self.serial.read(max(1, self.serial.in_waiting))
+            elif frame[0] in want:
+                return frame
+            elif frame[0] == Response.STATE_SNAPSHOT:
+                self._latest = frame[1]
 
-        def _arm_remaining_timeout() -> float:
-            remaining = deadline - time.monotonic()  # [s]
-            if has_timeout_attr:
-                serial_port.timeout = max(remaining, 0.0)
-            return remaining
-
+    def _transact(self, cmd: Command, payload: bytes = b'', want: Tuple[int, ...] = (Response.OK,)) -> Optional[Tuple[int, bytes]]:
+        """Send a request/reply command; None on timeout/IO error. ERROR replies are returned too."""
+        if self.serial is None or not self.serial.is_open:
+            return None
         try:
-            sync_state = 0
-            while sync_state < 2:
-                if _arm_remaining_timeout() <= 0:
-                    raise TimeoutError("Timeout waiting for reply header.")
-                b = serial_port.read(1)
-                if not b:
-                    raise TimeoutError("Timeout waiting for reply header.")
-                if sync_state == 0 and b[0] == BRIDGE_SYNC_1:
-                    sync_state = 1
-                elif sync_state == 1 and b[0] == BRIDGE_SYNC_2:
-                    sync_state = 2
-                else:
-                    sync_state = 0
+            self._drain()  # drop stale replies so a late ACK can't answer this request
+            self._send_frame(cmd, payload)
+            return self._wait_for(want + (Response.ERROR,), self.timeout)
+        except (TimeoutError, serial.SerialException) as e:
+            self.logger.warning(f"{cmd.name} failed: {e}")
+            return None
 
-            if _arm_remaining_timeout() <= 0:
-                raise TimeoutError("Timeout reading LEN.")
-            length_byte = serial_port.read(1)
-            if not length_byte:
-                raise TimeoutError("Timeout reading LEN.")
-
-            if _arm_remaining_timeout() <= 0:
-                raise TimeoutError("Truncated frame.")
-            rest = serial_port.read(length_byte[0] + 1)
-            if len(rest) != length_byte[0] + 1:
-                raise TimeoutError("Truncated frame.")
-
-            cmd = rest[0]
-            payload = rest[1:-1]
-
-            if rest[-1] != self._calc_crc(length_byte + rest[:-1]):
-                raise ValueError(f"CRC mismatch. Received: {rest[-1]}, Computed: {self._calc_crc(length_byte + rest[:-1])}")
-            return cmd, payload
-
-        finally:
-            if has_timeout_attr and old_timeout is not None:
-                serial_port.timeout = old_timeout
+    def _ack(self, cmd: Command, payload: bytes = b'') -> bool:
+        reply = self._transact(cmd, payload)
+        return reply is not None and reply[0] == Response.OK
 
     def ping(self) -> bool:
         """Send a ping command to verify STM32 connectivity."""
-        if self.serial is None:
-            return False
-        self.serial.reset_input_buffer()
-        self._send_frame(Command.PING_BRIDGE)
-        try:
-            cmd, _ = self._read_reply()
-            return cmd == Response.OK
-        except Exception as e:
-            self.logger.warning(f"Ping failed: {e}")
-            return False
+        return self._ack(Command.PING_BRIDGE)
 
     def set_led_color(self, index: int, r: int, g: int, b: int) -> bool:
         """Set a single ring LED (0-17)."""
         if not (0 <= index < LED_RING_COUNT):
             raise ValueError(f"index must be in [0, {LED_RING_COUNT - 1}]")
-        self._send_frame(
+        return self._ack(
             Command.SET_LED_COLOR,
             bytes([LedTarget.LED_RING_SINGLE, index & 0xFF, r & 0xFF, g & 0xFF, b & 0xFF]),
         )
-        try:
-            cmd, _ = self._read_reply()
-            return cmd == Response.OK
-        except Exception:
-            return False
 
     def set_led_color_all(self, r: int, g: int, b: int) -> bool:
         """Set all 18 ring LEDs to a single color."""
-        self._send_frame(Command.SET_LED_COLOR, bytes([LedTarget.LED_RING_ALL, r & 0xFF, g & 0xFF, b & 0xFF]))
-        try:
-            cmd, _ = self._read_reply()
-            return cmd == Response.OK
-        except Exception:
-            return False
+        return self._ack(Command.SET_LED_COLOR, bytes([LedTarget.LED_RING_ALL, r & 0xFF, g & 0xFF, b & 0xFF]))
 
     def set_led_color_bulk(self, colors: List[Tuple[int, int, int]]) -> bool:
         """Set all 18 ring LEDs individually in a single UART frame."""
         if len(colors) != LED_RING_COUNT:
             raise ValueError(f"Expected exactly {LED_RING_COUNT} (r,g,b) tuples.")
-        payload = b''.join(bytes([r & 0xFF, g & 0xFF, b & 0xFF]) for r, g, b in colors)
-        self._send_frame(Command.SET_LED_RING_BULK, payload)
-        try:
-            cmd, _ = self._read_reply()
-            return cmd == Response.OK
-        except Exception:
-            return False
-
-    def get_power(self) -> Optional[Tuple[float, float, float]]:
-        """Retrieve voltage [V], current [A] and power [W] from the INA226 sensor."""
-        if self.serial is None:
-            return None
-        self.serial.reset_input_buffer()
-        self._send_frame(Command.GET_POWER)
-        try:
-            cmd, payload = self._read_reply()
-            if cmd == Response.POWER_READING and len(payload) == 12:
-                bus_uV, curr_uA, power_uW = struct.unpack('<iii', payload)  # [µV], [µA], [µW]
-                return (bus_uV / 1_000_000.0, curr_uA / 1_000_000.0, power_uW / 1_000_000.0)
-            return None
-        except Exception as e:
-            self.logger.warning(f"get_power error: {e}")
-            return None
+        return self._ack(Command.SET_LED_RING_BULK, b''.join(bytes([r & 0xFF, g & 0xFF, b & 0xFF]) for r, g, b in colors))
 
     @staticmethod
     def _decode_state_snapshot(payload: bytes) -> Dict[str, Any]:
-        """Decode a STATE_SNAPSHOT payload (shared by get_state() & set_positions()).
+        """Decode a STATE_SNAPSHOT payload.
 
-        Units of the returned fields: ``voltage_V`` [V], ``current_A`` [A], ``power_W`` [W];
+        Units of the returned fields: ``t_us`` MCU time of the servo read [µs] (uint32, wraps),
+        ``cycle_us`` bus cycle duration [µs]; ``voltage_V`` [V], ``current_A`` [A], ``power_W`` [W];
         per servo ``pos`` [step], ``speed`` [step.s⁻¹], ``load`` [0.1 %] of rated torque,
-        ``temp_C`` [°C], ``volt_V`` [V], ``current_A`` [A] (magnitude, 50 Hz); ``acc_mps2`` [m.s⁻²],
-        ``gyro_rps`` (raw) and ``gyro_corr_rps`` (Mahony bias removed) [rad.s⁻¹], ``quat``
-        unit quaternion (w, x, y, z).
+        ``temp_C`` [°C], ``volt_V`` [V], ``current_A`` [A] (magnitude), ``fresh`` (answered this
+        cycle, else the values are from an earlier one); ``acc_mps2`` [m.s⁻²], ``gyro_rps`` (raw)
+        and ``gyro_corr_rps`` (Mahony bias removed) [rad.s⁻¹], ``quat`` unit quaternion (w, x, y, z).
         """
-        data = struct.unpack(_SNAPSHOT_FORMAT, payload)
+        d = struct.unpack(_SNAPSHOT_FORMAT, payload)
+        seq, t_us, cycle_us, bus_uV, curr_uA, power_uW = d[:6]
+        servos, imu = d[6:78], d[78:91]
+        switches, fresh = d[91], d[92]
 
         return {
+            "seq": seq,
+            "t_us": t_us,
+            "cycle_us": cycle_us,
             "power": {
-                "voltage_V": data[0] / 1_000_000.0,
-                "current_A": data[1] / 1_000_000.0,
-                "power_W":   data[2] / 1_000_000.0,
+                "voltage_V": bus_uV / 1_000_000.0,
+                "current_A": curr_uA / 1_000_000.0,
+                "power_W":   power_uW / 1_000_000.0,
             },
             "servos": [
                 {
-                    "id":     i + 1,
-                    "pos":    data[3 + i * 5],
-                    "speed":  data[4 + i * 5],
-                    "load":   data[5 + i * 5],
-                    "temp_C": data[6 + i * 5],
-                    "volt_V": data[7 + i * 5] / 10.0,
-                    "current_A": data[77 + i] * _SERVO_CURRENT_A_PER_UNIT,
+                    "id":        i + 1,
+                    "pos":       servos[i * 6],
+                    "speed":     servos[i * 6 + 1],
+                    "load":      servos[i * 6 + 2],
+                    "temp_C":    servos[i * 6 + 3],
+                    "volt_V":    servos[i * 6 + 4] / 10.0,
+                    "current_A": servos[i * 6 + 5] * _SERVO_CURRENT_A_PER_UNIT,
+                    "fresh":     bool(fresh >> i & 1),
                 }
                 for i in range(12)
             ],
             "imu": {
-                "acc_mps2": [data[63] / 100.0,  data[64] / 100.0,  data[65] / 100.0],
-                "gyro_rps": [data[66] / 1000.0, data[67] / 1000.0, data[68] / 1000.0],
-                "gyro_corr_rps": [data[74] / 1000.0, data[75] / 1000.0, data[76] / 1000.0],
-                "quat":     [data[69] / 32767.0, data[70] / 32767.0, data[71] / 32767.0, data[72] / 32767.0],
+                "acc_mps2":      [v / 100.0 for v in imu[0:3]],
+                "gyro_rps":      [v / 1000.0 for v in imu[3:6]],
+                "gyro_corr_rps": [v / 1000.0 for v in imu[6:9]],
+                "quat":          [v / 32767.0 for v in imu[9:13]],
             },
             "switches": {
-                "TL": bool(data[73] & 0x01),
-                "TR": bool(data[73] & 0x02),
-                "BL": bool(data[73] & 0x04),
-                "BR": bool(data[73] & 0x08),
+                "TL": bool(switches & 0x01),
+                "TR": bool(switches & 0x02),
+                "BL": bool(switches & 0x04),
+                "BR": bool(switches & 0x08),
             },
         }
 
-    def set_positions(self, raw_steps: List[int]) -> Optional[Dict[str, Any]]:
+    def _send_nowait(self, cmd: Command, payload: bytes) -> bool:
+        """Send a command that gets no reply; False if the port is closed/broken."""
+        try:
+            self._send_frame(cmd, payload)
+            return True
+        except (ConnectionError, serial.SerialException) as e:
+            self.logger.warning(f"{cmd.name} error: {e}")
+            return False
+
+    def set_positions(self, raw_steps: List[int]) -> bool:
         """Send target positions to all 12 servomotors."""
         if len(raw_steps) != 12:
             raise ValueError("Expected exactly 12 raw positions (pad with 0 if unused).")
-        if self.serial is None:
-            return None
-        
-        self.serial.reset_input_buffer()
-        self._send_frame(Command.SET_POSITIONS, struct.pack('<12H', *raw_steps))
-        try:
-            cmd, payload = self._read_reply(timeout=_HOT_PATH_TIMEOUT_S)
-            if cmd != Response.STATE_SNAPSHOT or len(payload) != _SNAPSHOT_LEN:
-                self.logger.warning(f"set_positions: unexpected reply (cmd={cmd}, {len(payload)} bytes)")
-                return None
-            return self._decode_state_snapshot(payload)
-        except Exception as e:
-            self.logger.warning(f"set_positions error: {e}")
-            return None
+        return self._send_nowait(Command.SET_POSITIONS, struct.pack('<12H', *raw_steps))
 
-    def get_state(self) -> Optional[Dict[str, Any]]:
+    def set_torque(self, enabled: bool, servo_ids: Optional[Iterable[int]] = None) -> bool:
+        """Switch torque on/off for servo_ids (default: all 12) in one frame."""
+        mask = 0
+        for servo_id in (servo_ids if servo_ids is not None else range(1, 13)):
+            if not 1 <= servo_id <= 12:
+                raise ValueError(f"servo_id must be in [1, 12], got {servo_id}")
+            mask |= 1 << (servo_id - 1)
+        return self._send_nowait(Command.SET_TORQUE, struct.pack('<HH', mask, mask if enabled else 0))
+
+    def get_state(self, timeout: float = _HOT_PATH_TIMEOUT_S) -> Optional[Dict[str, Any]]:
         """Retrieve the global hardware state snapshot."""
-        if self.serial is None:
+        if self.serial is None or not self.serial.is_open:
             return None
-        self.serial.reset_input_buffer()
-        self._send_frame(Command.STATE_FEEDBACK)
         try:
-            cmd, payload = self._read_reply(timeout=_HOT_PATH_TIMEOUT_S)
-            if cmd != Response.STATE_SNAPSHOT or len(payload) != _SNAPSHOT_LEN:
-                self.logger.warning(f"Unexpected state snapshot size: {len(payload)} bytes")
-                return None
-            return self._decode_state_snapshot(payload)
-        except Exception as e:
+            self._drain()
+            payload, self._latest = self._latest, None
+            if payload is None:
+                _, payload = self._wait_for((Response.STATE_SNAPSHOT,), timeout)
+        except (TimeoutError, serial.SerialException) as e:
             self.logger.error(f"get_state error: {e}")
             return None
+        if len(payload) != _SNAPSHOT_LEN:
+            self.logger.warning(f"Unexpected state snapshot size: {len(payload)} bytes (firmware/SDK protocol mismatch?)")
+            return None
+        return self._decode_state_snapshot(payload)
 
     def ping_servo(self, servo_id: int) -> bool:
         """Ping a specific servomotor on the bus."""
-        if self.serial is None:
-            return False
-        self.serial.reset_input_buffer()
-        self._send_frame(Command.PING_SERVO, bytes([servo_id & 0xFF]))
-        try:
-            cmd, _ = self._read_reply()
-            return cmd == Response.OK
-        except Exception:
-            return False
+        return self._ack(Command.PING_SERVO, bytes([servo_id & 0xFF]))
 
     def set_servo_id(self, old_id: int, new_id: int) -> bool:
         """Change the ID of a Feetech servomotor."""
-        if self.serial is None:
-            return False
-        self.serial.reset_input_buffer()
-        self._send_frame(Command.SET_SERVO_ID, bytes([old_id & 0xFF, new_id & 0xFF]))
-        try:
-            cmd, _ = self._read_reply()
-            return cmd == Response.OK
-        except Exception as e:
-            self.logger.warning(f"set_servo_id error: {e}")
-            return False
-        
+        return self._ack(Command.SET_SERVO_ID, bytes([old_id & 0xFF, new_id & 0xFF]))
+
     def write_servo_register(self, servo_id: int, reg: int, size: int, value: int) -> bool:
         """Write 1 or 2 bytes to a specific Feetech register via the STM32 bridge."""
-        if self.serial is None:
-            return False
-        self.serial.reset_input_buffer()
-        
-        val_lsb = value & 0xFF
-        val_msb = (value >> 8) & 0xFF
-        
-        payload = bytes([servo_id & 0xFF, reg & 0xFF, size & 0xFF, val_lsb, val_msb])
-        self._send_frame(Command.WRITE_SERVO_REGISTER, payload)
-        
-        try:
-            cmd, _ = self._read_reply()
-            return cmd == Response.OK
-        except Exception as e:
-            self.logger.error(f"write_servo_register failed: {e}")
-            return False
+        payload = bytes([servo_id & 0xFF, reg & 0xFF, size & 0xFF, value & 0xFF, (value >> 8) & 0xFF])
+        return self._ack(Command.WRITE_SERVO_REGISTER, payload)
 
     def read_servo_register(self, servo_id: int, reg: int, size: int) -> Optional[int]:
         """Read 1 or 2 bytes from a specific Feetech register."""
-        if self.serial is None:
+        reply = self._transact(Command.READ_SERVO_REGISTER, bytes([servo_id & 0xFF, reg & 0xFF, size & 0xFF]),
+                               want=(Response.SERVO_REG_VALUE,))
+        if reply is None or reply[0] != Response.SERVO_REG_VALUE or len(reply[1]) != size or size not in (1, 2):
             return None
-        self.serial.reset_input_buffer()
-        
-        payload = bytes([servo_id & 0xFF, reg & 0xFF, size & 0xFF])
-        self._send_frame(Command.READ_SERVO_REGISTER, payload)
-        
-        try:
-            cmd, reply_payload = self._read_reply()
-            if cmd == Response.SERVO_REG_VALUE and len(reply_payload) == size:
-                if size == 1:
-                    return int(reply_payload[0])
-                elif size == 2:
-                    return int(struct.unpack('<H', reply_payload)[0])
-            return None
-        except Exception as e:
-            self.logger.error(f"read_servo_register error: {e}")
-            return None
+        return int.from_bytes(reply[1], 'little')
