@@ -5,9 +5,9 @@ Chromapi is an open-source 12-DoF quadruped robot that I design and build on my 
 ![Chromapi](https://custom-icon-badges.demolab.com/badge/Chromapi-software-a957f9?logo=chromapi)
 ![Discord](https://img.shields.io/discord/1383790297594728518?color=7289DA&logo=discord&logoColor=white&label=Discord)
 ![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python)
+[![Software: Apache 2.0](https://img.shields.io/badge/Software-Apache%202.0-lightgrey.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ![CI: Linters](https://github.com/Mowibox/chromapi/actions/workflows/lint.yml/badge.svg)
 ![CI: Unit Tests](https://github.com/Mowibox/chromapi/actions/workflows/pytest.yml/badge.svg)
-[![Software: Apache 2.0](https://img.shields.io/badge/Software-Apache%202.0-lightgrey.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ![Issues](https://img.shields.io/github/issues/Mowibox/chromapi)
 ![Stars](https://img.shields.io/github/stars/Mowibox/chromapi?style=social)
 
@@ -116,7 +116,5 @@ This repository is multi-licensed:
 | Robot description (URDF, MJCF, configuration files) | [`/src/chromapi/model`](./src/chromapi/model/) | [Apache 2.0](./LICENSE) |
 | 3D meshes (`.stl`, `.part`) | [`/src/chromapi/model/*/assets`](./src/chromapi/model/) | [CC BY-NC-SA 4.0](./src/chromapi/model/LICENSE) |
 | Documentation and media (README, images, GIFs) | [`/assets`](./assets/), this README | [CC BY-NC-SA 4.0](./src/chromapi/model/LICENSE) |
-
-Code published before the switch to Apache 2.0 (October 2026) was released under the MIT License and remains available under its terms.
 
 **Third-party content keeps its own license:** meshes of off-the-shelf parts (Raspberry Pi 4, IMX219 camera, Noctua NF-A4x10 fan, WS2812B ring, 18650 battery, speaker, microswitch, power switch, connectors, screws) come from their respective manufacturers. The ENSEA and PCBWay logos in [`/assets`](./assets/) are trademarks of their respective owners.
