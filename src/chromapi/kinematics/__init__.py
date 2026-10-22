@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Kinematics layer for Chromapi.
 
 - :mod:`chromapi.kinematics.types` - shared array/dict type aliases.

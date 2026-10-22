@@ -1,8 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
 """Kromatics - Kinematics Module for Chromapi."""
 
 from __future__ import annotations
 
 import logging
+import re
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
 
@@ -63,6 +66,19 @@ _CONVERGENCE_TOL_M = 1e-3  # [m]
 
 _ZERO3: Vector3 = np.zeros(3)  # [m] or [rad]
 
+_GEOMETRY_TAGS = re.compile(r"<(visual|collision)\b.*?</\1>", re.S)
+
+
+def _load_kinematic_robot(urdf_path: Path) -> Any:
+    """Load the URDF without its <visual>/<collision> meshes bringing the load down to a few ms."""
+    if urdf_path.is_dir():
+        urdf_path = urdf_path / "robot.urdf"
+    urdf = _GEOMETRY_TAGS.sub("", urdf_path.read_text())
+    with tempfile.NamedTemporaryFile("w", suffix=".urdf") as f:
+        f.write(urdf)
+        f.flush()
+        return placo.RobotWrapper(f.name, placo.Flags.ignore_collisions)
+
 
 class Kromatics:
     """Whole-body kinematics for Chromapi - one QP over all 12 joints."""
@@ -90,7 +106,7 @@ class Kromatics:
                 "Kromatics requires the 'placo' package (pip install placo), which was not found."
             )
 
-        self.robot = placo.RobotWrapper(str(urdf_path), placo.Flags.ignore_collisions)
+        self.robot = _load_kinematic_robot(Path(urdf_path))
         if initial_pose is not None:
             self._apply_q(dict(initial_pose))
 

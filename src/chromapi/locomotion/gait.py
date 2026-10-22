@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Gait engine for Chromapi."""
 
 from __future__ import annotations
@@ -478,10 +479,11 @@ class GaitEngine:
         foot_targets: FootTargets = {}  # [m]
         for leg in LEG_NAMES:
             in_stance = self._phase(leg, self._t) < self.params.duty_factor
+            lifted_off = not in_stance and self._prev_in_stance[leg]
             if in_stance and not self._prev_in_stance[leg]:
                 anchor = self._swing[leg].touch_down
                 self._swing[leg] = _LegSwingState(lift_off=anchor, touch_down=anchor)
-            elif not in_stance and self._prev_in_stance[leg]:
+            elif lifted_off:
                 anchor = self._swing[leg].touch_down
                 self._swing[leg] = _LegSwingState(lift_off=anchor, touch_down=anchor.copy())
             self._prev_in_stance[leg] = in_stance
@@ -503,7 +505,9 @@ class GaitEngine:
                 max_move = _REPLAN_SPEED_FACTOR * self.params.workspace_reach_m / swing_s * dt  # [m]
                 move = planned[:2] - self._swing[leg].touch_down[:2]  # [m]
                 norm = float(np.linalg.norm(move))  # [m]
-                if norm > max_move:
+                # On the lift-off tick sigma(tau) ~ 0, so the whole plan can be taken at once without moving
+                # the foot; capping it there would slew it during the swing and stop dead -> a joint kink.
+                if norm > max_move and not lifted_off:
                     move *= max_move / norm
                 self._swing[leg].touch_down[:2] += move
                 tau = (self._phase(leg, self._t) - self.params.duty_factor) / (

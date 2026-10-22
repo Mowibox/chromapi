@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # firmware_flash_manual.sh - Manually flash the STM32G431KBT6 firmware on the Chromapi motherboard
 #
 # Wiring (see https://github.com/Mowibox/chromapi_motherboard/blob/main/hardware/schematic_pdf/):

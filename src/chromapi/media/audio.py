@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Audio playback and recording for Chromapi.
 
 Optional dependency (``pip install chromapi[audio]``, i.e. ``sounddevice``) - every function

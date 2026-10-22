@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Unit tests for chromapi.input.gamepad - event parsing only, no real device needed."""
 
 import pytest

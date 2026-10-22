@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Abstract human input source - :class:`InputSource` + :class:`UserInput`.
 
 One small interface so a teleop loop can swap gamepad for

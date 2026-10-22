@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Root conftest.py — pytest configuration for the chromapi test suite.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Motor Scanning Utility.
 
 Pings the servo bus to discover and list all connected Feetech servomotors.

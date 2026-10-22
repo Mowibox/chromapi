@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Chromapi class for controlling a Chromapi robot.
 
 High-level SDK entry point: one :class:`Chromapi` object drives either the real robot (over
@@ -43,7 +44,7 @@ import numpy as np
 import numpy.typing as npt
 import yaml
 
-from chromapi.estimation.attitude import IDENTITY_QUAT, ImuMount
+from chromapi.estimation.attitude import IDENTITY_QUAT, ImuMount, quat_from_roll_pitch
 from chromapi.hardware.motherboard_bridge import DEFAULT_BAUDRATE, BridgeClient
 from chromapi.kinematics import kromatics as K
 
@@ -78,7 +79,7 @@ class RobotState:
     imu_quat_wxyz: Tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)  # unit quaternion
     imu_gyro: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [rad.s⁻¹] bias-corrected
     imu_gyro_raw: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [rad.s⁻¹] as read by the sensor
-    imu_accel: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [m.s⁻²] BMI088 convention: (0, 0, -g) when level
+    imu_accel: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [m.s⁻²] specific force: (0, 0, +g) when level
     foot_contacts: Dict[str, bool] = field(default_factory=dict)
     voltage_v: float = 0.0  # [V]
     current_a: float = 0.0  # [A]
@@ -218,7 +219,7 @@ class HardwareBackend(RobotBackend):
             state.joint_loads[joint] = float(servo["load"])
             state.joint_currents[joint] = servo["current_A"]  # magnitude, no direction
 
-        # IMU readings are expressed in the chassis frame
+        # The firmware sends the IMU in the URDF/MJCF "imu" frame (x forward, y left, z up), as MuJoCo does
         state.imu_quat_wxyz = self._imu_mount.apply(snapshot["imu"]["quat"])
         state.imu_gyro_raw = self._imu_mount.apply_vector(snapshot["imu"]["gyro_rps"])  # [rad.s⁻¹]
         state.imu_gyro = self._imu_mount.apply_vector(snapshot["imu"]["gyro_corr_rps"])  # [rad.s⁻¹]
@@ -254,6 +255,10 @@ class HardwareBackend(RobotBackend):
     def set_led_bulk(self, colors: Sequence[Tuple[int, int, int]]) -> None:
         """Set all 18 ring LEDs via a single bridge frame."""
         self._bridge.set_led_color_bulk(list(colors))
+
+
+#: Chassis height [m] at which the robot rests on the floor in ZERO_POSE (settles at 0.1225 m).
+_SPAWN_HEIGHT_M = 0.125
 
 
 class MuJoCoBackend(RobotBackend):
@@ -323,6 +328,9 @@ class MuJoCoBackend(RobotBackend):
                 g for g in range(self._model.ngeom) if self._model.geom_bodyid[g] == body_id
             ]
 
+        # The MJCF puts the chassis at z = 0, which is inside the floor: MuJoCo then ejects the
+        # robot on the first steps. Spawn it resting on its belly instead (ZERO_POSE, legs splayed).
+        self._data.qpos[2] = _SPAWN_HEIGHT_M
         mujoco.mj_forward(self._model, self._data)
 
     def connect(self) -> bool:
@@ -402,8 +410,7 @@ class MuJoCoBackend(RobotBackend):
             state.imu_gyro = (float(gyro[0]), float(gyro[1]), float(gyro[2]))
             state.imu_gyro_raw = state.imu_gyro
             accel = self._data.sensor("imu_accel").data  # [m.s⁻²]
-            # MuJoCo gives the specific force (+g when level), the BMI088 its opposite.
-            state.imu_accel = (-float(accel[0]), -float(accel[1]), -float(accel[2]))
+            state.imu_accel = (float(accel[0]), float(accel[1]), float(accel[2]))
         except KeyError:
             logger.warning("MJCF model has no 'imu' sensors - IMU state left at defaults")
 
@@ -458,6 +465,20 @@ class MuJoCoBackend(RobotBackend):
         self._data.qpos[0:3] = xyz
         self._data.qpos[3:7] = quat_wxyz
         self._data.qvel[:] = 0.0
+        self._mujoco.mj_forward(self._model, self._data)
+
+    def set_chassis_force(self, force_xyz: Sequence[float] = (0.0, 0.0, 0.0)) -> None:
+        """Apply an external world-frame force [N] at the chassis CoM until reset - simulation-only, for push tests."""
+        self._data.xfrc_applied[self._chassis_body_id, :3] = force_xyz
+
+    def set_floor_tilt(self, roll: float = 0.0, pitch: float = 0.0) -> None:
+        """Tilt the floor plane [rad], ``Ry(pitch).Rx(roll)`` - simulation-only, for slope tests.
+
+        Call before :meth:`connect`: static world geoms are only re-posed by ``mj_setConst``,
+        which must not race the control loop.
+        """
+        self._model.geom_quat[self._floor_geom_id] = quat_from_roll_pitch(roll, pitch)
+        self._mujoco.mj_setConst(self._model, self._data)
         self._mujoco.mj_forward(self._model, self._data)
 
 

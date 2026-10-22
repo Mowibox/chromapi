@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Motor Setup and Full Provisioning Tool."""
 
 import time
@@ -15,6 +16,11 @@ REG_I = 23
 REG_MODE = 33
 REG_ACCEL = 41
 REG_LOCK = 55
+# Undocumented (name from pypot): acceleration cap of the internal motion profile, read at power-up only.
+# Factory 50 (~440 deg/s^2) makes the joints lag targets by 160-200 ms in gait; 254 gives a response
+# close to the BAM model (measured 2026-10-20 with servo_step_test.py).
+REG_MAX_ACCEL = 85
+MAX_ACCEL = 254
 
 def read_servo_config(bridge: BridgeClient, servo_id: int) -> Dict[str, Optional[int]]:
     """Read back current configuration registers directly from the hardware."""
@@ -23,6 +29,7 @@ def read_servo_config(bridge: BridgeClient, servo_id: int) -> Dict[str, Optional
         "I": bridge.read_servo_register(servo_id, REG_I, 1),
         "D": bridge.read_servo_register(servo_id, REG_D, 1),
         "Acceleration": bridge.read_servo_register(servo_id, REG_ACCEL, 1),
+        "Max Accel": bridge.read_servo_register(servo_id, REG_MAX_ACCEL, 1),
         "Mode": bridge.read_servo_register(servo_id, REG_MODE, 1),
         "Max Voltage": bridge.read_servo_register(servo_id, REG_MAX_VOLT, 1),
         "Min Voltage": bridge.read_servo_register(servo_id, REG_MIN_VOLT, 1)
@@ -38,9 +45,10 @@ def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> None:
     bridge.write_servo_register(target_id, REG_MIN_VOLT, 1, 66)
     bridge.write_servo_register(target_id, REG_MAX_VOLT, 1, 84)
 
-    print("[*] Setting Mode = 0 (Position), Acceleration = 0 (Instant)")
+    print(f"[*] Setting Mode = 0 (Position), Acceleration = 0, Max Accel = {MAX_ACCEL}")
     bridge.write_servo_register(target_id, REG_MODE, 1, 0)
     bridge.write_servo_register(target_id, REG_ACCEL, 1, 0)
+    bridge.write_servo_register(target_id, REG_MAX_ACCEL, 1, MAX_ACCEL)
 
     print("[*] Setting PID = (32, 0, 0)")
     bridge.write_servo_register(target_id, REG_P, 1, 32)
@@ -69,6 +77,7 @@ def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> None:
         else:
             print(f" {key:12} : {val}")
     print("="*40)
+    print(" Max Accel only applies after a servo power cycle.")
 
 def main() -> None:
     """Run the interactive prompt for servo provisioning."""

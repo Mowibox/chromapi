@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """State estimation layer for Chromapi.
 
 - :mod:`chromapi.estimation.attitude` - projected gravity, roll/pitch, tilt and

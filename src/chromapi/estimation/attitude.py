@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Attitude helpers for Chromapi - tilt from the IMU quaternion.
 
 The STM32 runs the Mahony filter and sends a unit quaternion

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Shared array/dict type aliases for the kinematics layer."""
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,8 +8,9 @@ version = "0.1.0"
 authors = [{ name = "Mowibox", email = "ousmane.thiongane@outlook.com" }]
 description = "High-level software for the Chromapi 12-DOF quadruped robot"
 readme = "README.md"
-license = { file = "LICENSE" }
-requires-python = ">=3.10"
+license = "Apache-2.0 AND CC-BY-NC-SA-4.0"
+license-files = ["LICENSE", "src/chromapi/model/LICENSE"]
+requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.2.5",
     "pyserial>=3.5",
@@ -53,6 +54,7 @@ dev = [
 chromapi-diagnostics = "chromapi.utils.hardware_diagnostic:main"
 chromapi-scan-motors = "chromapi.utils.scan_motors:main"
 chromapi-setup-motors = "chromapi.utils.setup_motors:main"
+# chromapi-calibrate-imu = "chromapi.utils.calibrate_imu_mount:main"
 # chromapi-cam-calib = "chromapi.utils.calibrate_camera:main"
 # chromapi-calibrate-servos = "chromapi.utils.calibrate_servo_centers:main"
 

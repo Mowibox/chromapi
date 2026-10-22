@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Closed-form leg IK (from chromapi.kinematics.analytical_ik) against the URDF model."""
 
 import dataclasses

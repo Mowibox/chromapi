@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Raw Linux joystick gamepad input - :class:`GamepadInput`.
 
 No external dependency: reads ``/dev/input/js*`` directly

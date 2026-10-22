@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Hardware Diagnostic Tool.
 
 Provides CLI utilities to test the UART bridge, power monitor, IMU, audio subsystem,

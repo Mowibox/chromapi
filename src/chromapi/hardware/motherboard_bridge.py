@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Motherboard Bridge Module for Chromapi.
 
 Provides the UART communication interface between the Raspberry Pi and the STM32 motherboard
