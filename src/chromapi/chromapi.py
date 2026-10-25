@@ -297,7 +297,7 @@ class MuJoCoBackend(RobotBackend):
         self._data = mujoco.MjData(self._model)
         self._realtime = realtime
         self._last_step_time: Optional[float] = None  # [s]
-        self._viewer = None
+        self._viewer: Any = None  # mujoco.viewer.Handle once connect() opened it
         self._viewer_thread: Optional[threading.Thread] = None
         self._launch_viewer = launch_viewer
         self._key_callback = key_callback
