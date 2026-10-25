@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import numpy as np
@@ -230,6 +230,19 @@ class GaitEngine:
         self._prev_in_stance: Dict[str, bool] = {
             leg: self._phase(leg, 0.0) < self.params.duty_factor for leg in LEG_NAMES
         }
+
+    def set_body_height(self, body_height: float) -> None:
+        """Change ``params.body_height`` live, without :meth:`reset` (keeps phase and foot anchors).
+
+        Every stored foot z (nominal footprint, swing anchors) moves by the height change; keep
+        each call small (ramp it), since the joints follow within a single tick.
+        """
+        dz = body_height - self.params.body_height  # [m]
+        points = list(self._nominal_footprint.values())
+        points += [p for s in self._swing.values() for p in (s.lift_off, s.touch_down)]
+        for p in {id(p): p for p in points}.values():  # lift_off may alias touch_down
+            p[2] -= dz
+        self.params = replace(self.params, body_height=body_height)
 
     def set_velocity(self, vx: float, vy: float, wz: float) -> None:
         """Set the desired body-frame twist, clamped to :class:`GaitParams`'s speed limits.
