@@ -241,6 +241,7 @@ class PersistentAudioOutput:
                 dtype="float32",
                 device=self.device,
                 callback=self._callback,
+                latency="high",
             )
             self._stream.start()
         except Exception:
