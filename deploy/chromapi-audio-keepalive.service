@@ -1,0 +1,13 @@
+# Service alternative to bypass speaker's I2S clock stops.
+# Installed as /etc/systemd/system/chromapi-audio-keepalive.service.
+[Unit]
+Description=Chromapi speaker keep-alive
+After=sound.target
+
+[Service]
+ExecStart=/usr/bin/aplay -q -D chromapi_speaker -t raw -f S32_LE -r 48000 -c 2 /dev/zero
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

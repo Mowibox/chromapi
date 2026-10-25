@@ -84,7 +84,7 @@ imu:
   mount_offset_wxyz: [1.0, 0.0, 0.0, 0.0]
 
 audio:
-  speaker: voicehat
+  speaker: ""
   volume: 0.25
 
 control:

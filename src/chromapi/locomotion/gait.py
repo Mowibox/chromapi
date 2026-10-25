@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Dict, Optional, Tuple
 import numpy as np
 import numpy.typing as npt
 
-from chromapi.chromapi import MotorCommand, Move, RobotState
+from chromapi.chromapi import MotorCommand, Move, RobotState, _minimum_jerk
 from chromapi.kinematics.kromatics import Kromatics
 from chromapi.kinematics.topology import LEG_NAMES
 from chromapi.kinematics.types import FootTargets, JointDict, Vector3
@@ -560,12 +560,22 @@ class GaitEngine:
         return twist
 
 
+WALK_BLEND_S = 0.6
+_WALK_BLEND_SKIP_RAD = np.radians(2.0)
+
 class WalkMove(Move):
     """Walk Move class."""
 
     def __init__(self, kinematics: Kromatics, params: Optional[GaitParams] = None) -> None:
         """Build a fresh :class:`GaitEngine` (stand still pose) for ``kinematics``/``params``."""
         self.gait = GaitEngine(kinematics, params)
+        self._blend_from: Optional[JointDict] = None
+        self._blend_t = WALK_BLEND_S  # [s]
+
+    def on_start(self) -> None:
+        """Ease into the gait from wherever the robot stands (see :data:`WALK_BLEND_S`)."""
+        self._blend_from = None
+        self._blend_t = 0.0
 
     def set_velocity(self, vx: float, vy: float, wz: float) -> None:
         """Forward to :meth:`GaitEngine.set_velocity` (``vx``, ``vy`` [m.s⁻¹], ``wz`` [rad.s⁻¹])."""
@@ -574,4 +584,17 @@ class WalkMove(Move):
     def step(self, state: RobotState, command: MotorCommand, dt: float) -> None:
         """Advance the gait and write the resulting joint targets into ``command``."""
         del state  # unused - GaitEngine is pure dead reckoning
-        command.target_angles.update(self.gait.step(dt))
+        if self._blend_t >= WALK_BLEND_S:
+            command.target_angles.update(self.gait.step(dt))
+            return
+        stance = self.gait.step(0.0)  # frozen until the pose has caught up
+        if self._blend_from is None:
+            self._blend_from = dict(command.target_angles)
+            if max(abs(q - self._blend_from.get(j, q)) for j, q in stance.items()) < _WALK_BLEND_SKIP_RAD:
+                self._blend_t = WALK_BLEND_S
+                command.target_angles.update(stance)
+                return
+        self._blend_t = min(self._blend_t + dt, WALK_BLEND_S)
+        s = _minimum_jerk(self._blend_t / WALK_BLEND_S)
+        start = self._blend_from
+        command.target_angles.update({j: start.get(j, q) + s * (q - start.get(j, q)) for j, q in stance.items()})
