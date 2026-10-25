@@ -44,7 +44,7 @@ def _frame(cmd: int, payload: bytes = b'') -> bytes:
 
 
 def _snapshot_payload(seq=0, t_us=1000, gyro_corr=(0, 0, 0), servo_current=(0,) * 12, fresh=0x0FFF) -> bytes:
-    """168-byte protocol v2 STATE_SNAPSHOT payload."""
+    """168-byte protocol v1 STATE_SNAPSHOT payload."""
     servos = []
     for i in range(12):
         servos += [100, 0, 0, 25, 60, servo_current[i]]  # pos, speed, load, temp_C, volt(raw->6.0V), current
@@ -210,3 +210,20 @@ def test_control_loop_and_caller_threads_share_the_port(bridge: BridgeClient, mo
         stop.set()
         loop.join()
     assert all(acks)
+
+
+def test_get_version(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    sent = []
+
+    def firmware(cmd: int, payload: bytes = b'') -> None:
+        sent.append(cmd)
+        mock_serial.rx.extend(_frame(Response.VERSION, bytes([1, 1, 1, 0])))
+
+    bridge._send_frame = firmware
+    assert bridge.get_version() == (1, (1, 1, 0))
+    assert sent == [Command.GET_VERSION]
+
+
+def test_get_version_on_old_firmware(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    bridge._send_frame = lambda *a, **k: mock_serial.rx.extend(_frame(Response.ERROR))  # 1.0.0: unknown command
+    assert bridge.get_version() is None

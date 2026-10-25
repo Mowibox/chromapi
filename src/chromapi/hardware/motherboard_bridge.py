@@ -37,6 +37,10 @@ def _crc16(data: bytes) -> int:
     return binascii.crc_hqx(data, 0xFFFF)
 
 
+#: Bridge protocol this SDK speaks - must match the firmware's BRIDGE_PROTOCOL_VERSION (bridge.h).
+BRIDGE_PROTOCOL_VERSION = 1
+
+
 class Command(IntEnum):
     """Available bridge commands."""
 
@@ -49,6 +53,7 @@ class Command(IntEnum):
     SET_LED_RING_BULK    = 0x08
     WRITE_SERVO_REGISTER = 0x0A
     READ_SERVO_REGISTER  = 0x0B
+    GET_VERSION          = 0x0C
 
 class Response(IntEnum):
     """Possible bridge responses."""
@@ -57,6 +62,7 @@ class Response(IntEnum):
     ERROR           = 0x81
     STATE_SNAPSHOT  = 0x83
     SERVO_REG_VALUE = 0x84
+    VERSION         = 0x85
 
 class LedTarget(IntEnum):
     """LED target types for the SET_LED_COLOR command."""
@@ -315,6 +321,17 @@ class BridgeClient:
         """Write 1 or 2 bytes to a specific Feetech register via the STM32 bridge."""
         payload = bytes([servo_id & 0xFF, reg & 0xFF, size & 0xFF, value & 0xFF, (value >> 8) & 0xFF])
         return self._ack(Command.WRITE_SERVO_REGISTER, payload)
+
+    def get_version(self) -> Optional[Tuple[int, Tuple[int, int, int]]]:
+        """Return ``(protocol, (major, minor, patch))`` of the firmware, or None.
+
+        None also means a firmware older than 1.1.0, which does not know this command.
+        """
+        reply = self._transact(Command.GET_VERSION, want=(Response.VERSION,))
+        if reply is None or reply[0] != Response.VERSION or len(reply[1]) != 4:
+            return None
+        protocol, major, minor, patch = reply[1]
+        return protocol, (major, minor, patch)
 
     def read_servo_register(self, servo_id: int, reg: int, size: int) -> Optional[int]:
         """Read 1 or 2 bytes from a specific Feetech register."""

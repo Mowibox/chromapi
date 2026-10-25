@@ -47,7 +47,11 @@ import numpy.typing as npt
 import yaml
 
 from chromapi.estimation.attitude import IDENTITY_QUAT, ImuMount, quat_from_roll_pitch
-from chromapi.hardware.motherboard_bridge import DEFAULT_BAUDRATE, BridgeClient
+from chromapi.hardware.motherboard_bridge import (
+    BRIDGE_PROTOCOL_VERSION,
+    DEFAULT_BAUDRATE,
+    BridgeClient,
+)
 from chromapi.kinematics import kromatics as K
 
 if TYPE_CHECKING:
@@ -177,8 +181,20 @@ class HardwareBackend(RobotBackend):
             raise ValueError(f"servo config is missing joints: {sorted(missing)}")
 
     def connect(self) -> bool:
-        """Open the UART serial port to the STM32 bridge."""
-        return self._bridge.connect()
+        """Open the UART serial port to the STM32 bridge, and log the firmware version."""
+        if not self._bridge.connect():
+            return False
+        version = self._bridge.get_version()
+        if version is None:
+            logger.warning("Motherboard firmware older than 1.1.0 (no version command) - please update it")
+        elif version[0] != BRIDGE_PROTOCOL_VERSION:
+            logger.warning(
+                "Motherboard firmware %d.%d.%d speaks bridge protocol %d, this SDK speaks %d - update one of them",
+                *version[1], version[0], BRIDGE_PROTOCOL_VERSION,
+            )
+        else:
+            logger.info("Motherboard firmware %d.%d.%d, bridge protocol %d", *version[1], version[0])
+        return True
 
     def close(self) -> None:
         """Close the UART serial port."""
