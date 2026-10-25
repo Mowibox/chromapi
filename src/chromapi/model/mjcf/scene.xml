@@ -1,4 +1,4 @@
-<mujoco model="scene">
+<mujoco model="Chromapi Simulation">
     <include file="robot.xml" />
 
     <visual>
