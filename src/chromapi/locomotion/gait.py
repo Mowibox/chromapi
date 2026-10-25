@@ -240,7 +240,7 @@ class GaitEngine:
         dz = body_height - self.params.body_height  # [m]
         points = list(self._nominal_footprint.values())
         points += [p for s in self._swing.values() for p in (s.lift_off, s.touch_down)]
-        for p in {id(p): p for p in points}.values():  # lift_off may alias touch_down
+        for p in {id(p): p for p in points}.values():
             p[2] -= dz
         self.params = replace(self.params, body_height=body_height)
 
