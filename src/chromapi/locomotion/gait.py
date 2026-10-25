@@ -200,7 +200,7 @@ class GaitEngine:
     def __init__(self, kinematics: Kromatics, params: Optional[GaitParams] = None) -> None:
         """Build the engine and reset it to a stand still pose."""
         self.kinematics = kinematics
-        self.params = params or GaitParams()
+        self.params = params or GaitParams.trot()
         self._analytical: Optional["AnalyticalIK"] = None 
         self._analytical_report: Optional["CalibrationReport"] = None
         self._analytical_disabled = False
@@ -266,6 +266,11 @@ class GaitEngine:
             scale = self.params.max_speed_mps / foot_speed
             vx, vy, wz = vx * scale, vy * scale, wz * scale
         self._target_twist = np.array([vx, vy, wz])
+
+    @property
+    def twist(self) -> npt.NDArray[np.float64]:
+        """Actual (ramped) body-frame twist (vx, vy, wz) [m.s⁻¹, m.s⁻¹, rad.s⁻¹]."""
+        return self._twist.copy()
 
     @property
     def max_yaw_rate_rad_s(self) -> float:

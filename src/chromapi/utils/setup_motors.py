@@ -16,9 +16,7 @@ REG_I = 23
 REG_MODE = 33
 REG_ACCEL = 41
 REG_LOCK = 55
-# Undocumented (name from pypot): acceleration cap of the internal motion profile, read at power-up only.
-# Factory 50 (~440 deg/s^2) makes the joints lag targets by 160-200 ms in gait; 254 gives a response
-# close to the BAM model (measured 2026-10-20 with servo_step_test.py).
+# Undocumented (name from pypot): acceleration cap of the internal motion profile.
 REG_MAX_ACCEL = 85
 MAX_ACCEL = 254
 

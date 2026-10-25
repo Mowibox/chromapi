@@ -89,3 +89,19 @@ def test_gait_engine_keeps_analytical_solver(kinematics: Kromatics) -> None:
         engine.step(0.02)
     assert engine._analytical is not None
     assert not engine._analytical_disabled
+
+
+def test_set_body_height_shifts_feet_without_reset(kinematics: Kromatics) -> None:
+    engine = GaitEngine(kinematics, GaitParams.trot())
+    engine.set_velocity(0.0, -0.05, 0.0)
+    for _ in range(30):
+        engine.step(0.02)
+    t = engine._t
+    nominal = {leg: p.copy() for leg, p in engine._nominal_footprint.items()}
+    anchors = {leg: s.touch_down.copy() for leg, s in engine._swing.items()}
+    engine.set_body_height(engine.params.body_height + 0.02)
+    assert engine._t == t  # phase kept: no reset()
+    assert engine.params.body_height == pytest.approx(GaitParams.trot().body_height + 0.02)
+    for leg in nominal:
+        assert engine._nominal_footprint[leg][2] == pytest.approx(nominal[leg][2] - 0.02)
+        assert engine._swing[leg].touch_down[2] == pytest.approx(anchors[leg][2] - 0.02)

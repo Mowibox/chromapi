@@ -3,6 +3,7 @@
 
 import binascii
 import struct
+import threading
 import time
 
 import pytest
@@ -172,3 +173,40 @@ def test_command_error_and_timeout(bridge: BridgeClient, mock_serial: DummySeria
     assert bridge.ping_servo(3) is False
     bridge._send_frame = lambda *a, **k: None
     assert bridge.ping_servo(3) is False
+
+
+def test_control_loop_and_caller_threads_share_the_port(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    """A control-loop thread polling snapshots must never swallow the reply another thread waits for."""
+    def reply(data: bytes) -> None:  # the firmware: a command gets its ACK, every frame a snapshot
+        if data[3] != Command.SET_POSITIONS:
+            mock_serial.rx += _frame(Response.OK)
+        mock_serial.rx += _frame(Response.STATE_SNAPSHOT, _snapshot_payload())
+
+    def write(data: bytes) -> None:  # the reply comes back over the wire a little later
+        threading.Timer(0.001, reply, (data,)).start()
+
+    def read(size: int = 1) -> bytes:  # a real port blocks briefly when nothing has arrived
+        if not mock_serial.rx:
+            time.sleep(0.0005)
+        chunk = bytes(mock_serial.rx[:size])
+        del mock_serial.rx[:size]
+        return chunk
+
+    mock_serial.write = write  # type: ignore[method-assign]
+    mock_serial.read = read  # type: ignore[method-assign]
+    bridge.timeout = 0.2  # [s]
+    stop = threading.Event()
+
+    def control_loop() -> None:
+        while not stop.is_set():
+            bridge.set_positions([2048] * 12)
+            bridge.get_state()
+
+    loop = threading.Thread(target=control_loop)
+    loop.start()
+    try:
+        acks = [bridge.set_led_color_all(10, 0, 10) for _ in range(50)]
+    finally:
+        stop.set()
+        loop.join()
+    assert all(acks)

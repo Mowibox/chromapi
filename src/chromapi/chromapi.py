@@ -23,6 +23,8 @@ not what you want to power on into for locomotion. Because of this:
 from __future__ import annotations
 
 import logging
+import os
+import signal
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -55,9 +57,14 @@ logger = logging.getLogger(__name__)
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = _PACKAGE_DIR / "config" / "config.yaml"
+USER_CALIBRATION_PATH = (
+    Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "chromapi" / "calibration.yaml"
+)
 DEFAULT_URDF_PATH = _PACKAGE_DIR / "model" / "urdf" / "robot.urdf"
 DEFAULT_MJCF_PATH = _PACKAGE_DIR / "model" / "mjcf" / "scene.xml"
-DEFAULT_CHROMAPI_SCREAM_PATH = _PACKAGE_DIR / "assets" / "audio" / "chromapi_scream.wav"
+AUDIO_DIR = _PACKAGE_DIR / "assets" / "audio"
+DEFAULT_CHROMAPI_SCREAM_PATH = AUDIO_DIR / "chromapi_scream.wav"
+IDLE_LED_RGB = (63, 1, 88)
 
 #: STS3215 magnetic-encoder resolution (steps per revolution) and center step, standard
 #: Feetech convention (see stm32-sts3215-lib's ``sts3215_regs.h``/memory table).
@@ -270,6 +277,7 @@ class MuJoCoBackend(RobotBackend):
         realtime: bool = True,
         launch_viewer: bool = False,
         key_callback: Optional[Callable[[int], None]] = None,
+        follow_robot: bool = False,
     ) -> None:
         """Load the MJCF model.
 
@@ -279,9 +287,10 @@ class MuJoCoBackend(RobotBackend):
             launch_viewer: If True, opens an interactive ``mujoco.viewer`` window.
             key_callback: Receives a raw GLFW keycode on every keypress in
             the viewer window for teleop use.
+            follow_robot: If True, the viewer camera tracks the chassis (Esc frees it).
 
         """
-        import mujoco  # local import: mujoco is an optional ("rl") dependency
+        import mujoco  # local import: mujoco is an optional ("sim") dependency
 
         self._mujoco = mujoco
         self._model = mujoco.MjModel.from_xml_path(str(mjcf_path))
@@ -289,8 +298,10 @@ class MuJoCoBackend(RobotBackend):
         self._realtime = realtime
         self._last_step_time: Optional[float] = None  # [s]
         self._viewer = None
+        self._viewer_thread: Optional[threading.Thread] = None
         self._launch_viewer = launch_viewer
         self._key_callback = key_callback
+        self._follow_robot = follow_robot
 
         self._chassis_body_id = mujoco.mj_name2id(
             self._model, mujoco.mjtObj.mjOBJ_BODY, "chassis_assembly"
@@ -338,9 +349,24 @@ class MuJoCoBackend(RobotBackend):
         if self._launch_viewer and self._viewer is None:
             import mujoco.viewer
 
+            threads_before = set(threading.enumerate())
             self._viewer = mujoco.viewer.launch_passive(
-                self._model, self._data, key_callback=self._key_callback
+                self._model,
+                self._data,
+                key_callback=self._key_callback,
+                show_left_ui=False,  # Tab / Shift+Tab bring the panels back
+                show_right_ui=False,
             )
+            self._viewer_thread = next(iter(set(threading.enumerate()) - threads_before), None)
+            with self._viewer.lock():  # three-quarter front view, close on the robot
+                cam = self._viewer.cam
+                cam.lookat[:] = self._data.xpos[self._chassis_body_id] - (0.0, 0.0, 0.07)
+                cam.distance = 0.85  # [m]
+                cam.elevation = -18.0  # [deg]
+                cam.azimuth = 105.0  # [deg]
+                if self._follow_robot:
+                    cam.type = self._mujoco.mjtCamera.mjCAMERA_TRACKING
+                    cam.trackbodyid = self._chassis_body_id
         return True
 
     def close(self) -> None:
@@ -350,7 +376,10 @@ class MuJoCoBackend(RobotBackend):
                 self._viewer.close()
             except Exception:
                 logger.debug("MuJoCo viewer close() raised (already closed?) - ignoring", exc_info=True)
+            if self._viewer_thread is not None:
+                self._viewer_thread.join(timeout=5.0)
             self._viewer = None
+            self._viewer_thread = None
 
     def is_alive(self) -> bool:
         """Check if the interactive viewer window is still open."""
@@ -518,9 +547,43 @@ class Move(ABC):
 # ========================================================================================
 
 
-def _load_config(config_path: Union[str, Path]) -> Dict[str, Any]:
+def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively merge two dicts, returning a new dict."""
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _read_yaml(path: Path) -> Dict[str, Any]:
+    """Read a YAML file and return its contents as a dict."""
+    return dict(yaml.safe_load(path.read_text()) or {}) if path.exists() else {}
+
+
+def load_config(
+    config_path: Union[str, Path] = DEFAULT_CONFIG_PATH,
+    calibration_path: Union[str, Path] = USER_CALIBRATION_PATH,
+) -> Dict[str, Any]:
+    """Return the package defaults (``config_path``) with this robot's calibration merged over them."""
     with open(config_path) as f:
-        return dict(yaml.safe_load(f))
+        defaults = dict(yaml.safe_load(f))
+    return _deep_merge(defaults, _read_yaml(Path(calibration_path)))
+
+
+def save_calibration(
+    updates: Dict[str, Any], calibration_path: Union[str, Path] = USER_CALIBRATION_PATH
+) -> Path:
+    """Merge the given updates into the calibration file, creating it if necessary, and return the path."""
+    path = Path(calibration_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = _deep_merge(_read_yaml(path), updates)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(yaml.safe_dump(data, sort_keys=False))
+    os.replace(tmp, path)
+    return path
 
 
 def _minimum_jerk(t01: float) -> float:
@@ -558,21 +621,25 @@ class Chromapi:
         baudrate: int = DEFAULT_BAUDRATE,
         launch_viewer: bool = False,
         key_callback: Optional[Callable[[int], None]] = None,
+        follow_robot: bool = False,
     ) -> None:
         """Build a Chromapi instance without connecting yet (see :meth:`connect`).
 
         Args:
             backend: ``"hardware"`` (real robot over UART) or ``"mujoco"`` (simulation).
-            config_path: Path to ``config.yaml`` (servo ID map, control-loop frequency, ...).
+            config_path: Path to ``config.yaml`` (servo ID map, control-loop frequency, ...),
+                with :data:`USER_CALIBRATION_PATH` merged over it.
             mjcf_path: MJCF scene to load for the ``"mujoco"`` backend.
             port: Serial port for the ``"hardware"`` backend.
             baudrate: Baud rate for the ``"hardware"`` backend (must match the firmware).
             launch_viewer: For the ``"mujoco"`` backend, open an interactive viewer window.
             key_callback: For the ``"mujoco"`` backend with ``launch_viewer=True``, a
                 keyboard callback forwarded to the viewer.
+            follow_robot: For the ``"mujoco"`` backend with ``launch_viewer=True``, the camera
+                tracks the robot.
 
         """
-        self.config = _load_config(config_path)
+        self.config = load_config(config_path)
         control_cfg = self.config.get("control", {})
         self.loop_hz: float = float(control_cfg.get("loop_hz", 50.0))  # [Hz]
         self.wake_up_duration_s: float = float(control_cfg.get("wake_up_duration_s", 3.5))  # [s]
@@ -592,7 +659,10 @@ class Chromapi:
             )
         elif backend == "mujoco":
             self.backend = MuJoCoBackend(
-                mjcf_path, launch_viewer=launch_viewer, key_callback=key_callback
+                mjcf_path,
+                launch_viewer=launch_viewer,
+                key_callback=key_callback,
+                follow_robot=follow_robot,
             )
         else:
             raise ValueError(f"Unknown backend {backend!r}, expected 'hardware' or 'mujoco'")
@@ -683,7 +753,8 @@ class Chromapi:
         next_deadline = last_tick + period  # [s]
         while not self._stop_event.is_set():
             if not self.backend.is_alive():
-                logger.info("Backend no longer alive (viewer closed?) - stopping control loop")
+                logger.info("Viewer window closed - stopping, as with Ctrl-C")
+                os.kill(os.getpid(), signal.SIGINT)  # unlike interrupt_main(), also ends a sleep()
                 return
             tick_start = time.monotonic()
             dt = tick_start - last_tick  # [s]
@@ -708,7 +779,8 @@ class Chromapi:
             self.backend.send_joint_targets(targets)
 
             elapsed = time.monotonic() - tick_start  # [s]
-            if elapsed > 2 * period:
+            # In simulation the viewer's sync() alone often takes 20 ms; the physics catches up.
+            if elapsed > 2 * period and isinstance(self.backend, HardwareBackend):
                 logger.warning(
                     "Control loop overrun: tick took %.1f ms (target period %.1f ms)",
                     elapsed * 1000,
@@ -890,7 +962,7 @@ class Chromapi:
         vx: float = 0.0,
         vy: float = 0.0,
         wz: float = 0.0,
-        pattern: str = "crawl",
+        pattern: str = "trot",
         params: Optional["GaitParams"] = None,
     ) -> "WalkMove":
         """Start (or update) open-loop walking at the given body-frame velocity.
@@ -899,7 +971,7 @@ class Chromapi:
             vx: Commanded forward velocity (positive = forward) [m.s⁻¹].
             vy: Commanded lateral velocity (positive = left) [m.s⁻¹].
             wz: Commanded yaw rate (positive = turn left) [rad.s⁻¹].
-            pattern: ``"crawl"`` (default, statically stable) or ``"trot"`` (faster, dynamic).
+            pattern: ``"trot"`` (default, faster, dynamic) or ``"crawl"`` (statically stable).
             params: Explicit :class:`~chromapi.locomotion.gait.GaitParams`, overriding
                 ``pattern``.
 
@@ -933,6 +1005,12 @@ class Chromapi:
         if self._walk_move is not None:
             self._walk_move.set_velocity(0.0, 0.0, 0.0)
 
+    def _wait_until_stopped(self, timeout_s: float = 3.0) -> None:
+        """Block until the walking velocity has ramped down to zero (after :meth:`stop_walk`)."""
+        deadline = time.monotonic() + timeout_s  # [s]
+        while self._walk_move is not None and self._walk_move.gait.twist.any() and time.monotonic() < deadline:
+            time.sleep(0.01)
+
     def walk_distance(
         self,
         distance_m: float,
@@ -940,7 +1018,7 @@ class Chromapi:
         lateral: bool = False,
         **walk_kwargs: Any,
     ) -> None:
-        """Walk forward (or sideways) approximately ``distance_m``, then stop.
+        """Walk forward (or sideways) approximately ``distance_m``, then stop (returns once stopped).
 
         Args:
             distance_m: Signed distance to walk [m]. Positive = forward (or left, with
@@ -959,6 +1037,7 @@ class Chromapi:
             self.walk(vx=direction * speed, vy=0.0, wz=0.0, **walk_kwargs)
         time.sleep(abs(distance_m) / speed)
         self.stop_walk()
+        self._wait_until_stopped()
 
     def turn(
         self,
@@ -966,7 +1045,11 @@ class Chromapi:
         angular_speed_deg_s: float = 30.0,
         **walk_kwargs: Any,
     ) -> None:
-        """Turn in place by approximately ``degrees``, then stop.
+        """Turn in place by ``degrees``, measured on the IMU yaw, then stop (returns once stopped).
+
+        The open-loop gait slips, so the turn is stopped on the measured yaw rather than after
+        the theoretical time - early enough for the yaw-rate ramp-down to finish the angle. Falls
+        back to three times that theoretical time if the IMU yaw never gets there.
 
         Args:
             degrees: Signed angle to turn [deg]. Positive = left.
@@ -977,10 +1060,28 @@ class Chromapi:
         if angular_speed_deg_s <= 0.0:
             raise ValueError(f"angular_speed_deg_s must be positive, got {angular_speed_deg_s}")
         direction = 1.0 if degrees >= 0.0 else -1.0
+        target_rad = abs(np.radians(degrees))  # [rad]
         angular_speed_rad_s = np.radians(angular_speed_deg_s)  # [rad.s⁻¹]
-        self.walk(vx=0.0, vy=0.0, wz=direction * angular_speed_rad_s, **walk_kwargs)
-        time.sleep(abs(np.radians(degrees)) / angular_speed_rad_s)
+        move = self.walk(vx=0.0, vy=0.0, wz=direction * angular_speed_rad_s, **walk_kwargs)
+        deadline = time.monotonic() + 3.0 * target_rad / angular_speed_rad_s  # [s]
+        previous_yaw = self.get_imu_yaw()  # [rad]
+        turned = 0.0  # [rad]
+        max_yaw_accel = move.gait.params.max_angular_acceleration_rad_s2  # [rad.s⁻²]
+        while abs(turned) < target_rad - move.gait.twist[2] ** 2 / (2.0 * max_yaw_accel):
+            if time.monotonic() > deadline:
+                logger.warning("turn: IMU yaw at %.0f of %.0f deg - stopping on time", np.degrees(abs(turned)), abs(degrees))
+                break
+            time.sleep(0.01)
+            yaw = self.get_imu_yaw()
+            turned += (yaw - previous_yaw + np.pi) % (2.0 * np.pi) - np.pi
+            previous_yaw = yaw
         self.stop_walk()
+        self._wait_until_stopped()
+
+    def get_imu_yaw(self) -> float:
+        """Return the trunk heading from the IMU [rad], positive = left (drifts slowly over minutes)."""
+        w, x, y, z = self.get_imu_orientation()
+        return float(np.arctan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z)))
 
     # -- motors / LEDs ----------------------------------------------------------------
 

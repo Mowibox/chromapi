@@ -33,7 +33,7 @@ cd chromapi
 uv sync --all-extras    # or: pip install -e ".[all]"
 ```
 
-The `audio` extra enables sounds on the robot and the `rl` extra installs MuJoCo for simulation.
+The `audio` extra enables sounds on the robot and the `sim` extra installs MuJoCo for simulation.
 
 ### In simulation
 

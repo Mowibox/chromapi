@@ -8,6 +8,7 @@ using a custom protocol.
 import binascii
 import logging
 import struct
+import threading
 import time
 from enum import IntEnum
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -84,6 +85,9 @@ class BridgeClient:
         self.logger: logging.Logger = logging.getLogger("BridgeClient")
         self._rx = bytearray()
         self._latest: Optional[bytes] = None  # newest snapshot payload not yet returned
+        # One frame exchange at a time: Chromapi's control loop and the caller's thread (wake_up,
+        # rest, LEDs) share this port, and interleaved writes or RX parsing corrupt frames.
+        self._io_lock = threading.Lock()
 
     def connect(self) -> bool:
         """Attempt to open the serial port connection."""
@@ -157,9 +161,10 @@ class BridgeClient:
         if self.serial is None or not self.serial.is_open:
             return None
         try:
-            self._drain()  # drop stale replies so a late ACK can't answer this request
-            self._send_frame(cmd, payload)
-            return self._wait_for(want + (Response.ERROR,), self.timeout)
+            with self._io_lock:
+                self._drain()  # drop stale replies so a late ACK can't answer this request
+                self._send_frame(cmd, payload)
+                return self._wait_for(want + (Response.ERROR,), self.timeout)
         except (TimeoutError, serial.SerialException) as e:
             self.logger.warning(f"{cmd.name} failed: {e}")
             return None
@@ -246,7 +251,8 @@ class BridgeClient:
     def _send_nowait(self, cmd: Command, payload: bytes) -> bool:
         """Send a command that gets no reply; False if the port is closed/broken."""
         try:
-            self._send_frame(cmd, payload)
+            with self._io_lock:
+                self._send_frame(cmd, payload)
             return True
         except (ConnectionError, serial.SerialException) as e:
             self.logger.warning(f"{cmd.name} error: {e}")
@@ -284,10 +290,11 @@ class BridgeClient:
         if self.serial is None or not self.serial.is_open:
             return None
         try:
-            self._drain()
-            payload, self._latest = self._latest, None
-            if payload is None:
-                _, payload = self._wait_for((Response.STATE_SNAPSHOT,), timeout)
+            with self._io_lock:
+                self._drain()
+                payload, self._latest = self._latest, None
+                if payload is None:
+                    _, payload = self._wait_for((Response.STATE_SNAPSHOT,), timeout)
         except (TimeoutError, serial.SerialException) as e:
             self.logger.error(f"get_state error: {e}")
             return None
