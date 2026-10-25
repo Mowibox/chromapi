@@ -28,3 +28,19 @@ def test_calibration_overrides_only_what_was_measured(tmp_path):
     }
     assert DEFAULT_CONFIG_PATH.read_text() == defaults_before
     assert not list(calib.parent.glob("*.tmp"))
+
+
+def test_tibia_folds_with_the_femur_direction(monkeypatch):
+    """Raw servo direction x config sign = femur direction; lowering femur -> tibia folded down."""
+    from chromapi.utils import calibrate_servo_centers as cal
+
+    moves = []
+    monkeypatch.setattr(cal, "_move_to_pose", lambda bridge, servos, pose: moves.append(pose))
+    servos = {"sign": {"tl_2": -1, "tr_2": 1}}
+    for femur, raw_direction, expected in [
+        ("tl_2", -1, cal.TIBIA_FEMUR_UP_RAD),  # sign -1: raw steps down = femur angle up
+        ("tl_2", +1, cal.TIBIA_FEMUR_DOWN_RAD),
+        ("tr_2", -1, cal.TIBIA_FEMUR_DOWN_RAD),
+    ]:
+        cal._tibia_follows_femur(None, servos, femur)(raw_direction)
+        assert moves[-1] == {femur[:-1] + "3": expected}
