@@ -16,7 +16,6 @@ dependencies = [
     "pyserial>=3.5",
     "scipy>=1.15.3, <2.0.0",
     "pyyaml>=6.0",
-    "opencv-python-headless>=4.13.0.92",
     "opencv-contrib-python-headless>=4.13.0.92",
     "waitress>=3.0.2",
     "flask>=3.1.3",
@@ -29,13 +28,15 @@ dependencies = [
 audio = [
     "sounddevice>=0.4",
 ]
-rl = [
+sim = [
     "mujoco>=3.0",
-    "gymnasium>=0.29",
+]
+rl = [
     "onnxruntime>=1.16",
 ]
 all = [
     "chromapi[audio]",
+    "chromapi[sim]",
     "chromapi[rl]",
 ]
 
@@ -52,11 +53,11 @@ dev = [
 
 [project.scripts]
 chromapi-diagnostics = "chromapi.utils.hardware_diagnostic:main"
-chromapi-scan-motors = "chromapi.utils.scan_motors:main"
 chromapi-setup-motors = "chromapi.utils.setup_motors:main"
-# chromapi-calibrate-imu = "chromapi.utils.calibrate_imu_mount:main"
+chromapi-scan-motors = "chromapi.utils.scan_motors:main"
+chromapi-calibrate-servos = "chromapi.utils.calibrate_servo_centers:main"
+chromapi-calibrate-imu = "chromapi.utils.calibrate_imu_mount:main"
 # chromapi-cam-calib = "chromapi.utils.calibrate_camera:main"
-# chromapi-calibrate-servos = "chromapi.utils.calibrate_servo_centers:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
