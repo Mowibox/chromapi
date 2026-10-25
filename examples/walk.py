@@ -14,7 +14,6 @@ import math
 import time
 
 from chromapi.chromapi import AUDIO_DIR, IDLE_LED_RGB, Chromapi
-from chromapi.media.audio import play_wav
 
 
 def main() -> None:
@@ -31,7 +30,7 @@ def main() -> None:
         start_yaw = robot.get_imu_yaw()  # [rad]
         if not args.sim:
             robot.set_led_all(*IDLE_LED_RGB)
-        play_wav(AUDIO_DIR / "squeak.wav", wait=False)
+        robot.play_sound(AUDIO_DIR / "squeak.wav")
 
         for distance in (0.3, -0.3):  # [m] forward, then back
             robot.walk_distance(distance, pattern=args.pattern)

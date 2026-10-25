@@ -11,7 +11,7 @@ Usage::
 """
 
 import argparse
-import colorsys
+import math
 import time
 
 import numpy as np
@@ -25,12 +25,11 @@ from chromapi.chromapi import (
 )
 from chromapi.kinematics.kromatics import Kromatics
 from chromapi.locomotion.gait import WALK_POSTURE
-from chromapi.media.audio import play_wav
 
 TILT_RAD = np.radians(8.0)  # [rad] roll/pitch amplitude of the circle
 CIRCLE_S = 2.0  # [s] per full circle, for the trunk and the rainbow alike
 LED_COUNT = 18
-LED_BRIGHTNESS = 0.4  # [0, 1]
+LED_BRIGHTNESS = 0.35
 
 
 class TiltCircle(Move):
@@ -61,11 +60,14 @@ class TiltCircle(Move):
 
 
 def rainbow(turns: float) -> list:
-    """Return the ring's colors: a full hue wheel, rotated by ``turns`` (1.0 = one full turn)."""
-    return [
-        tuple(round(255 * c) for c in colorsys.hsv_to_rgb((i / LED_COUNT + turns) % 1.0, 1.0, LED_BRIGHTNESS))
-        for i in range(LED_COUNT)
-    ]
+    """Return the ring's colors: the teleop's spinning rainbow, rotated by ``turns`` (1.0 = one full turn)."""
+    colors = []
+    for i in range(LED_COUNT):
+        phase = 2.0 * math.pi * (turns + i / LED_COUNT)  # [rad]
+        colors.append(tuple(
+            int(127.5 * (1.0 + math.sin(phase + shift)) * LED_BRIGHTNESS) for shift in (0.0, 2.094, 4.188)
+        ))
+    return colors
 
 
 def main() -> None:
@@ -84,7 +86,7 @@ def main() -> None:
         time.sleep(1.5)
 
         dance = TiltCircle(robot.kinematics)
-        play_wav(DEFAULT_CHROMAPI_SCREAM_PATH, wait=False)
+        robot.play_sound(DEFAULT_CHROMAPI_SCREAM_PATH)
         robot.play_move(dance)
         while dance.t < args.duration:
             if not args.sim:
