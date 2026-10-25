@@ -1,25 +1,34 @@
-# Chromapi
+<p align="center">
+  <img alt="Chromapi logo" src="./assets/chromapi_logo.png" width="220">
+</p>
 
-Chromapi is an open-source 12-DoF quadruped robot that I design and build on my own.
-
-![Chromapi](https://custom-icon-badges.demolab.com/badge/Chromapi-software-a957f9?logo=chromapi)
-![Discord](https://img.shields.io/discord/1383790297594728518?color=7289DA&logo=discord&logoColor=white&label=Discord)
-![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python)
-[![Software: Apache 2.0](https://img.shields.io/badge/Software-Apache%202.0-lightgrey.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-![CI: Linters](https://github.com/Mowibox/chromapi/actions/workflows/lint.yml/badge.svg)
-![CI: Unit Tests](https://github.com/Mowibox/chromapi/actions/workflows/pytest.yml/badge.svg)
-![Issues](https://img.shields.io/github/issues/Mowibox/chromapi)
-![Stars](https://img.shields.io/github/stars/Mowibox/chromapi?style=social)
+<h1 align="center">Chromapi</h1>
 
 <p align="center">
-  <img alt="chromapi" src="./assets/chromapi.gif"/>
+  <em>An open-source 12-DoF quadruped robot that I design and build on my own.</em>
+</p>
+
+<p align="center">
+  <a href="./examples/"><b>Examples</b></a> ·
+  <a href="https://mowibox.github.io/chroma/en/chromapi/design/">How it works</a> ·
+  <a href="https://discord.gg/SUQTs6QV3M">Discord</a> ·
+  <a href="#contributions">Contributing</a>
+</p>
+
+<p align="center">
+  <img alt="Chromapi software" src="https://custom-icon-badges.demolab.com/badge/Chromapi-software-a957f9?logo=chromapi">
+  <img alt="Python 3.12+" src="https://img.shields.io/badge/Python-3.12+-blue?logo=python">
+  <a href="https://github.com/Mowibox/chromapi/actions/workflows/lint.yml"><img alt="CI: Linters" src="https://github.com/Mowibox/chromapi/actions/workflows/lint.yml/badge.svg"></a>
+  <a href="https://github.com/Mowibox/chromapi/actions/workflows/pytest.yml"><img alt="CI: Unit Tests" src="https://github.com/Mowibox/chromapi/actions/workflows/pytest.yml/badge.svg"></a>
+  <img alt="Issues" src="https://img.shields.io/github/issues/Mowibox/chromapi">
+  <img alt="Stars" src="https://img.shields.io/github/stars/Mowibox/chromapi?style=social">
+</p>
+
+<p align="center">
+  <img alt="Chromapi dancing" src="./assets/chromapi.gif"/>
 </p>
 
 ## Getting started
-
-<p align="center">
-  <img alt="chromapi" src="./assets/chromapi_logo.png" width="300">
-</p>
 
 To build the robot, start with the [Bill of Materials](https://mowibox.github.io/chroma/en/chromapi/bom/) and the [specifications](https://mowibox.github.io/chroma/en/chromapi/specifications/) on the Chroma website.
 
