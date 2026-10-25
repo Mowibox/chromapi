@@ -3,6 +3,7 @@
 
 import binascii
 import struct
+import time
 
 import pytest
 
@@ -100,6 +101,17 @@ def test_set_torque_frame(bridge: BridgeClient, mock_serial: DummySerial) -> Non
     assert mock_serial.written[-1] == _frame(Command.SET_TORQUE, struct.pack('<HH', 0x0004, 0))
     with pytest.raises(ValueError):
         bridge.set_torque(True, [13])
+
+
+def test_sleep_feeds_link_watchdog(bridge: BridgeClient, mock_serial: DummySerial) -> None:
+    """A ping at least every 50 ms, well inside the firmware's 100 ms link timeout."""
+    sent = []
+    bridge._send_frame = lambda cmd, payload=b'': sent.append((time.monotonic(), cmd))
+    t0 = time.monotonic()
+    bridge.sleep(0.3)
+    assert time.monotonic() - t0 >= 0.3
+    times = [t0] + [t for t, cmd in sent if cmd == Command.PING_BRIDGE] + [time.monotonic()]
+    assert len(times) >= 8 and max(b - a for a, b in zip(times, times[1:])) < 0.08
 
 
 def test_command_reply_skips_streamed_snapshots(bridge: BridgeClient, mock_serial: DummySerial) -> None:

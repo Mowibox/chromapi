@@ -21,6 +21,8 @@ DEFAULT_BAUDRATE = 2_000_000
 _HOT_PATH_TIMEOUT_S = 0.05  # [s]
 # Blocking granularity of a single serial read, set once on the port
 _READ_POLL_S = 0.002  # [s]
+# The STM32 releases every servo's torque after 100 ms without a valid frame: keepalive period
+_LINK_KEEPALIVE_S = 0.05  # [s]
 
 # seq, t_us, cycle_us, power, 12 x servo (pos, speed, load, temp, volt, current),
 # imu acc/gyro/gyro_corr/quat, switches, servo fresh mask
@@ -249,6 +251,18 @@ class BridgeClient:
         except (ConnectionError, serial.SerialException) as e:
             self.logger.warning(f"{cmd.name} error: {e}")
             return False
+
+    def sleep(self, duration: float) -> None:
+        """``time.sleep()`` that keeps the STM32 link watchdog fed while torque is held.
+
+        The firmware releases every servo after 100 ms without a valid frame. A script that holds
+        torque while idle must wait with this instead of ``time.sleep()``. The pings expect no
+        reply here: their ACKs are dropped by the next command's ``_drain()``.
+        """
+        end = time.monotonic() + duration  # [s]
+        while (left := end - time.monotonic()) > 0:
+            self._send_nowait(Command.PING_BRIDGE, b'')
+            time.sleep(min(_LINK_KEEPALIVE_S, left))
 
     def set_positions(self, raw_steps: List[int]) -> bool:
         """Send target positions to all 12 servomotors."""
