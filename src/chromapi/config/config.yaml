@@ -83,6 +83,10 @@ servos:
 imu:
   mount_offset_wxyz: [1.0, 0.0, 0.0, 0.0]
 
+audio:
+  speaker: voicehat
+  volume: 0.25
+
 control:
   loop_hz: 100.0
   wake_up_duration_s: 2.5

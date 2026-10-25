@@ -645,6 +645,9 @@ class Chromapi:
         self.wake_up_duration_s: float = float(control_cfg.get("wake_up_duration_s", 3.5))  # [s]
         self.rest_duration_s: float = float(control_cfg.get("rest_duration_s", 2.0))  # [s]
         self.approach_duration_s: float = float(control_cfg.get("approach_duration_s", 2.0))  # [s]
+        audio_cfg = self.config.get("audio", {})
+        self.sound_volume: float = float(audio_cfg.get("volume", 0.25))
+        self._speaker_hint: str = str(audio_cfg.get("speaker", "")) if backend == "hardware" else ""
         self.kinematics = K.Kromatics(
             DEFAULT_URDF_PATH, dt=1.0 / self.loop_hz, initial_pose=dict(K.ZERO_POSE)
         )
@@ -1104,6 +1107,17 @@ class Chromapi:
     def set_led_bulk(self, colors: Sequence[Tuple[int, int, int]]) -> None:
         """Set all 18 ring LEDs at once from a list of (r, g, b) tuples."""
         self.backend.set_led_bulk(colors)
+
+    def play_sound(self, path: Union[str, Path], volume: Optional[float] = None, wait: bool = False) -> bool:
+        """Play a .wav on the robot's speaker (``config["audio"]``), or the PC's default output in simulation.
+
+        Returns False, with a warning in the log, if it could not be played (no ``audio`` extra,
+        no output device).
+        """
+        from chromapi.media.audio import find_output_device, play_wav
+
+        device = find_output_device(self._speaker_hint) if self._speaker_hint else None
+        return play_wav(path, wait=wait, volume=self.sound_volume if volume is None else volume, device=device)
 
     # -- moves / behaviors --------------------------------------------------------------
 
