@@ -56,6 +56,12 @@ _PLAN_SAMPLES = 10
 # Cap on how fast a re-planned touch-down point may move
 _REPLAN_SPEED_FACTOR = 2.0
 
+#: Once stopped, a foot this close to its neutral footprint [m] counts as settled (see GaitEngine._settled).
+_SETTLED_TOLERANCE_M = 0.005
+
+#: ... and a swinging foot this low [m] counts as down: the crawl always has one leg in swing.
+_SETTLED_CLEARANCE_M = 0.0005
+
 
 def _quintic(tau: float) -> float:
     """Normalized quintic polynomial time-scaling (``tau`` normalized time in [0, 1])."""
@@ -486,6 +492,8 @@ class GaitEngine:
     def step(self, dt: float) -> JointDict:
         """Advance the gait by ``dt`` [s] and return the resulting 12 joint angles [rad]."""
         self._twist = self._ramped(self._twist, dt)
+        if self._settled():
+            dt = 0.0  # stand still rather than step in place; the clock resumes with the next velocity
         scale = self._stance_speed_scale(dt)
         vx, vy, wz = (scale * c for c in self._origin_twist())  # [m.s⁻¹], [m.s⁻¹], [rad.s⁻¹]
         self._odom_xy, self._odom_yaw = _integrate_se2(
@@ -539,6 +547,19 @@ class GaitEngine:
                 foot_targets[leg] = self._chassis_from_odom(np.array([xy[0], xy[1], z]))
 
         return self._solve_ik(foot_targets)
+
+    def _settled(self) -> bool:
+        """True once stopped with every foot down (or barely lifted) on its neutral footprint."""
+        if self._target_twist.any() or self._twist.any():
+            return False
+        for leg in LEG_NAMES:
+            foot = self._chassis_from_odom(self._swing[leg].touch_down)  # [m]
+            if float(np.linalg.norm(foot[:2] - self._nominal_footprint[leg][:2])) >= _SETTLED_TOLERANCE_M:
+                return False
+            tau = (self._phase(leg, self._t) - self.params.duty_factor) / (1.0 - self.params.duty_factor)
+            if tau > 0.0 and self.params.swing_height * _swing_apex_profile(tau) >= _SETTLED_CLEARANCE_M:
+                return False
+        return True
 
     def _ramped(self, twist: npt.NDArray[np.float64], dt: float) -> npt.NDArray[np.float64]:
         """Move actual twist [m.s⁻¹, m.s⁻¹, rad.s⁻¹] to desired within the acceleration limits, over ``dt`` [s]."""

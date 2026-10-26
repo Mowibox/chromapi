@@ -105,3 +105,21 @@ def test_set_body_height_shifts_feet_without_reset(kinematics: Kromatics) -> Non
     for leg in nominal:
         assert engine._nominal_footprint[leg][2] == pytest.approx(nominal[leg][2] - 0.02)
         assert engine._swing[leg].touch_down[2] == pytest.approx(anchors[leg][2] - 0.02)
+
+
+@pytest.mark.parametrize("params", [GaitParams.trot(), GaitParams.crawl()], ids=["trot", "crawl"])
+def test_gait_stands_still_once_stopped(kinematics: Kromatics, params: GaitParams) -> None:
+    """No stepping in place: at rest the clock is frozen, and it freezes again after a stop."""
+    engine = GaitEngine(kinematics, params)
+    engine.step(0.02)
+    assert engine._t == 0.0
+    engine.set_velocity(0.0, -0.05, 0.0)
+    for _ in range(100):
+        engine.step(0.02)
+    assert engine._t > 0.0
+    engine.set_velocity(0.0, 0.0, 0.0)
+    for _ in range(int(3 * params.cycle_period_s / 0.02)):
+        engine.step(0.02)
+    t, q = engine._t, engine.step(0.02)
+    assert engine._t == t
+    assert engine.step(0.02) == pytest.approx(q, abs=1e-9)

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Drive Chromapi with a gamepad: left stick to walk, right stick to turn, button 0 to stand up / lie down.
+"""Drive Chromapi with a gamepad: left stick to walk, right stick to turn, A / cross to stand up / lie down.
 
 Pair the controller first (see :mod:`chromapi.input.gamepad`). If a stick moves the wrong way,
 check your controller's axis numbers with ``jstest /dev/input/js0`` and adjust
@@ -22,7 +22,8 @@ from chromapi.input.gamepad import GamepadInput
 
 MAX_LINEAR_MPS = 0.10  # [m.s⁻¹] at full stick deflection
 MAX_ANGULAR_RAD_S = np.radians(40.0)  # [rad.s⁻¹]
-TOGGLE_BUTTON = "0"  # A on Xbox layouts, cross on PlayStation ones
+TOGGLE_BUTTON = "0"  # raw joystick button number
+TOGGLE_BUTTON_LABEL = "(X)"
 
 
 def main() -> None:
@@ -41,7 +42,7 @@ def main() -> None:
 
     with Chromapi(backend="mujoco" if args.sim else "hardware", launch_viewer=args.sim, follow_robot=args.follow) as robot:
         awake = False
-        print(f"Press button {TOGGLE_BUTTON} to stand up, Ctrl-C to quit.")
+        print(f"Press {TOGGLE_BUTTON_LABEL} to stand up or lie down, Ctrl-C to quit.")
         try:
             while True:
                 user = gamepad.read()

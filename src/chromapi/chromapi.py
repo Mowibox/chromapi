@@ -714,10 +714,11 @@ class Chromapi:
                     "(legs splayed) until the first command; call wake_up() promptly."
                 )
 
-        try:
-            __import__("sounddevice")
-        except (ImportError, OSError):
-            pass
+        for module in ("sounddevice", "chromapi.media.audio", "chromapi.locomotion.gait"):
+            try:
+                __import__(module)
+            except (ImportError, OSError):
+                pass
 
         self._connected = True
         self._stop_event.clear()
@@ -756,7 +757,15 @@ class Chromapi:
         return self
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        """Disconnect on exiting a ``with`` block."""
+        """Disconnect on exiting a ``with`` block - lying down first if it ends on Ctrl-C or an error."""
+        if exc_type is not None and self._connected and self.backend.is_alive():
+            try:
+                self.stop_walk()
+                self._wait_until_stopped(timeout_s=1.0)
+                self.set_led_all(0, 0, 0)
+                self.rest()
+            except BaseException:  # a second Ctrl-C: give up lying down, still disconnect
+                logger.warning("Interrupted while lying down - disconnecting where it stands")
         self.disconnect()
 
     def __del__(self) -> None:
@@ -1068,7 +1077,7 @@ class Chromapi:
 
         The open-loop gait slips, so the turn is stopped on the measured yaw rather than after
         the theoretical time - early enough for the yaw-rate ramp-down to finish the angle. Falls
-        back to three times that theoretical time if the IMU yaw never gets there.
+        back to three times that theoretical time (plus the speed ramp) if the IMU yaw never gets there.
 
         Args:
             degrees: Signed angle to turn [deg]. Positive = left.
@@ -1082,10 +1091,11 @@ class Chromapi:
         target_rad = abs(np.radians(degrees))  # [rad]
         angular_speed_rad_s = np.radians(angular_speed_deg_s)  # [rad.s⁻¹]
         move = self.walk(vx=0.0, vy=0.0, wz=direction * angular_speed_rad_s, **walk_kwargs)
-        deadline = time.monotonic() + 3.0 * target_rad / angular_speed_rad_s  # [s]
+        max_yaw_accel = move.gait.params.max_angular_acceleration_rad_s2  # [rad.s⁻²]
+        ramp_s = angular_speed_rad_s / max_yaw_accel  # [s] to reach the speed - longer than a small turn itself
+        deadline = time.monotonic() + 3.0 * (target_rad / angular_speed_rad_s + ramp_s)  # [s]
         previous_yaw = self.get_imu_yaw()  # [rad]
         turned = 0.0  # [rad]
-        max_yaw_accel = move.gait.params.max_angular_acceleration_rad_s2  # [rad.s⁻²]
         while abs(turned) < target_rad - move.gait.twist[2] ** 2 / (2.0 * max_yaw_accel):
             if time.monotonic() > deadline:
                 logger.warning("turn: IMU yaw at %.0f of %.0f deg - stopping on time", np.degrees(abs(turned)), abs(degrees))
