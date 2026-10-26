@@ -20,13 +20,13 @@ from typing import Any, Dict, List, Tuple
 import yaml
 
 from chromapi.chromapi import USER_CALIBRATION_PATH, load_config
+from chromapi.hardware.battery import CRITICAL, EMPTY, LOW, Battery
 from chromapi.hardware.motherboard_bridge import BRIDGE_PROTOCOL_VERSION, BridgeClient
 
 OK, WARN, FAIL = "OK", "WARN", "FAIL"
 Result = Tuple[str, str, str]  # (level, check, detail)
 
 SNAPSHOTS = 5  # a servo missing one bus cycle is not a fault: it must answer in at least one snapshot
-BATTERY_CRITICAL_V = 6.0  # [V] ponytail: single threshold until M3 gives the real voltage -> % table
 SERVO_HOT_C = 60  # [°C]
 GRAVITY_TOLERANCE = 1.5  # [m.s⁻²] |acc| away from g by more than this: robot moving, or IMU wrong
 SERVO_ID_RANGE = range(1, 253)
@@ -103,8 +103,9 @@ def check_calibration(path: Path) -> List[Result]:
     return results
 
 
-def check_robot(bridge: Any, id_map: Dict[str, int]) -> List[Result]:
+def check_robot(bridge: Any, config: Dict[str, Any]) -> List[Result]:
     """Checks through the bridge. ``bridge`` must be connected; nothing here moves the robot."""
+    id_map: Dict[str, int] = config["servos"]["id_map"]
     if not bridge.ping():
         return [(FAIL, "bridge", "STM32 not answering: check the motherboard power and the UART wires")]
     results = [(OK, "bridge", "STM32 answering")]
@@ -124,13 +125,19 @@ def check_robot(bridge: Any, id_map: Dict[str, int]) -> List[Result]:
         return results
     last = snapshots[-1]
 
+    battery = Battery(config["battery"])
+    for i, snap in enumerate(snapshots):
+        battery.update(snap["power"]["voltage_V"], snap["power"]["current_A"], 0.2 * i)
     power = last["power"]
-    if power["voltage_V"] <= 0.0:
+    reading = f"{power['voltage_V']:.2f} V, {power['current_A']:.2f} A"
+    if battery.percent is None:
         results.append((FAIL, "battery", "power monitor reads 0 V: INA226 / I2C problem"))
-    elif power["voltage_V"] < BATTERY_CRITICAL_V:
-        results.append((FAIL, "battery", f"{power['voltage_V']:.2f} V: critically low, charge it"))
+    elif battery.level in (EMPTY, CRITICAL):
+        results.append((FAIL, "battery", f"{battery.percent:.0f} % ({reading}): too low to walk, need to charge"))
+    elif battery.level == LOW:
+        results.append((WARN, "battery", f"{battery.percent:.0f} % ({reading}): consider charging soon"))
     else:
-        results.append((OK, "battery", f"{power['voltage_V']:.2f} V, {power['current_A']:.2f} A"))
+        results.append((OK, "battery", f"{battery.percent:.0f} % ({reading})"))
 
     acc = last["imu"]["acc_mps2"]  # [m.s⁻²]
     norm = math.sqrt(sum(a * a for a in acc))  # [m.s⁻²]
@@ -167,7 +174,7 @@ def run_checks(port: str, calibration_path: Path) -> List[Result]:
     if not bridge.connect():
         return results + [(FAIL, "bridge port", f"cannot open {port}: is the UART enabled in config.txt?")]
     try:
-        return results + check_robot(bridge, load_config(calibration_path=calibration_path)["servos"]["id_map"])
+        return results + check_robot(bridge, load_config(calibration_path=calibration_path))
     finally:
         bridge.close()
 

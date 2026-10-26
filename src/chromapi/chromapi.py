@@ -47,6 +47,7 @@ import numpy.typing as npt
 import yaml
 
 from chromapi.estimation.attitude import IDENTITY_QUAT, ImuMount, quat_from_roll_pitch
+from chromapi.hardware.battery import CRITICAL, EMPTY, LOW, OK, Battery
 from chromapi.hardware.motherboard_bridge import (
     BRIDGE_PROTOCOL_VERSION,
     DEFAULT_BAUDRATE,
@@ -95,6 +96,7 @@ class RobotState:
     voltage_v: float = 0.0  # [V]
     current_a: float = 0.0  # [A]
     power_w: float = 0.0  # [W]
+    battery_percent: Optional[float] = None  # [%] smoothed charge estimate; None until read, and in simulation
     timestamp: float = 0.0  # [s]
     mcu_time_us: int = 0  # [µs] STM32 time of the servo read; 0 in simulation
 
@@ -686,6 +688,8 @@ class Chromapi:
         else:
             raise ValueError(f"Unknown backend {backend!r}, expected 'hardware' or 'mujoco'")
 
+        self.battery = Battery(self.config["battery"])
+        self._battery_level: Optional[str] = None
         self._connected = False
         self._state_lock = threading.Lock()
         self._latest_state: Optional[RobotState] = None
@@ -790,8 +794,11 @@ class Chromapi:
 
             state = self.backend.read_state()
             if state is not None:
+                self.battery.update(state.voltage_v, state.current_a, state.timestamp)
+                state.battery_percent = self.battery.percent
                 with self._state_lock:
                     self._latest_state = state
+                self._check_battery()
 
             with self._targets_lock:
                 if self._active_move is not None and state is not None:
@@ -822,6 +829,21 @@ class Chromapi:
             elif sleep_for < -period:
                 next_deadline = now
             next_deadline += period
+
+    def _check_battery(self) -> None:
+        """Log each drop to a lower battery level; at 0 %, lie down (control loop thread, so no waiting here)."""
+        order = (None, OK, LOW, CRITICAL, EMPTY)
+        level = self.battery.level
+        if order.index(level) <= order.index(self._battery_level):  # never back up: no flicker at a threshold
+            return
+        self._battery_level = level
+        if level == EMPTY:
+            logger.error("Battery empty (%.2f V without load) - lying down; need to charge", self.battery.ocv_v)
+            with self._targets_lock:
+                start = dict(self._current_targets)
+            self.play_move(_InterpolationMove(start, self.rest_pose(), self.rest_duration_s), name="_goto")
+        elif level is not None:
+            logger.info("Battery %s: %.0f %%", level, self.battery.percent)
 
     # -- state --------------------------------------------------------------------------
 
@@ -1006,7 +1028,16 @@ class Chromapi:
         Returns:
             The active :class:`~chromapi.locomotion.gait.WalkMove`
 
+        Raises:
+            RuntimeError: Starting to walk with the battery under ``critical_percent``. An ongoing walk
+                still takes new velocities, until the battery is empty and the robot lies down.
+
         """
+        percent = self.battery.percent
+        starting = self._walk_move is None or self._active_move is not self._walk_move
+        if starting and percent is not None and percent < self.battery.critical_percent:
+            raise RuntimeError(f"Battery at {percent:.0f} %: too low to walk, need to charge")
+
         from chromapi.locomotion.gait import GaitParams as _GaitParams
         from chromapi.locomotion.gait import WalkMove as _WalkMove
 

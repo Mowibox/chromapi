@@ -25,7 +25,7 @@ TOOLS: Dict[str, Any] = {
         "imu": ("chromapi.utils.calibrate_imu_mount:main", "measure the IMU board tilt on a level floor"),
     },
     "motors": {
-        "setup": ("chromapi.utils.setup_motors:main", "set each servo's ID, one servo at a time"),
+        "setup": ("chromapi.utils.setup_motors:main", "set each servo's ID and registers (--all: the 12 already assembled)"),
     },
     "health": ("chromapi.utils.health:main", "what is wrong with the robot, and what to do about it"),
 }

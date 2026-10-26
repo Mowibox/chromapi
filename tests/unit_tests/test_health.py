@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """Unit tests for ``chromapi health``."""
 
+from chromapi.chromapi import load_config
 from chromapi.hardware.motherboard_bridge import BRIDGE_PROTOCOL_VERSION
 from chromapi.utils.health import FAIL, OK, WARN, check_calibration, check_robot
 
-ID_MAP = {"tl_1": 1, "tl_2": 2, "tl_3": 3}
+CONFIG = {"servos": {"id_map": {"tl_1": 1, "tl_2": 2, "tl_3": 3}},
+          "battery": load_config(calibration_path="/nonexistent")["battery"]}
 
 
 class FakeBridge:
@@ -42,21 +44,26 @@ def levels(results):
 
 def test_healthy_robot():
     """All servos, good battery, still IMU: nothing to report."""
-    assert set(levels(check_robot(FakeBridge({1, 2, 3}), ID_MAP)).values()) == {OK}
+    assert set(levels(check_robot(FakeBridge({1, 2, 3}), CONFIG)).values()) == {OK}
 
 
 def test_servo_on_factory_id_is_named():
     """A missing servo triggers the bus scan, which finds it on another id."""
-    results = check_robot(FakeBridge({1, 3, 200}), ID_MAP)
+    results = check_robot(FakeBridge({1, 3, 200}), CONFIG)
     assert levels(results)["servo tl_2"] == FAIL
     assert any(check == "servo bus" and "unexpected id 200" in detail for _, check, detail in results)
 
 
 def test_low_battery_and_moving_imu():
     """Low battery fails; gravity off only warns (the robot may be moving)."""
-    found = levels(check_robot(FakeBridge({1, 2, 3}, voltage=5.5, acc=(0.0, 0.0, 14.0)), ID_MAP))
+    found = levels(check_robot(FakeBridge({1, 2, 3}, voltage=5.5, acc=(0.0, 0.0, 14.0)), CONFIG))
     assert found["battery"] == FAIL
     assert found["IMU"] == WARN
+
+
+def test_battery_low_warns():
+    """Between the critical and low thresholds: a warning, the robot can still walk."""
+    assert levels(check_robot(FakeBridge({1, 2, 3}, voltage=7.0), CONFIG))["battery"] == WARN
 
 
 def test_calibration_defaults_warn(tmp_path):
