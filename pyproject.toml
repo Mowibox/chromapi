@@ -52,11 +52,7 @@ dev = [
 ]
 
 [project.scripts]
-chromapi-diagnostics = "chromapi.utils.hardware_diagnostic:main"
-chromapi-setup-motors = "chromapi.utils.setup_motors:main"
-chromapi-scan-motors = "chromapi.utils.scan_motors:main"
-chromapi-calibrate-servos = "chromapi.utils.calibrate_servo_centers:main"
-chromapi-calibrate-imu = "chromapi.utils.calibrate_imu_mount:main"
+chromapi = "chromapi.cli:main"
 # chromapi-cam-calib = "chromapi.utils.calibrate_camera:main"
 
 [tool.setuptools]
