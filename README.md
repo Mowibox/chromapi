@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="./examples/"><b>Examples</b></a> ·
   <a href="https://mowibox.github.io/chroma/en/chromapi/design/">How it works</a> ·
+  <a href="./examples/">Examples</a> ·
   <a href="https://discord.gg/SUQTs6QV3M">Discord</a> ·
   <a href="#contributions">Contributing</a>
 </p>
@@ -55,15 +55,21 @@ with Chromapi(backend="mujoco", launch_viewer=True) as robot:
     robot.rest()
 ```
 
+More in [`examples/`](./examples/): `dance.py`, `walk.py` and `gamepad.py`. Each runs on the robot, or in MuJoCo with `--sim`.
+
 ### On the real robot
 
 On the Raspberry Pi, once the [motherboard firmware](https://github.com/Mowibox/chromapi_motherboard) is flashed:
 
 ```bash
-chromapi-setup-motors     # interactive: set each servo's ID and configuration, one servo at a time
-chromapi-scan-motors      # check that all 12 servos answer on the bus
-chromapi-diagnostics      # check the bridge, power monitor, IMU, audio and servos
+chromapi motors setup             # interactive: set each servo's ID, one servo at a time
+chromapi calibrate servos --all   # find each servo's center from its mechanical stops (lift the robot first)
+chromapi calibrate imu            # measure the IMU board tilt, robot still on a level floor
+chromapi health                   # what is wrong with the robot, and what to do about it
+chromapi version                  # SDK, firmware and bridge protocol versions
 ```
+
+`chromapi --help` lists every command (`python -m chromapi` works too).
 
 The same code then runs on the robot with `Chromapi(backend="hardware")`, which talks to the motherboard over UART communication.
 
@@ -75,7 +81,7 @@ The same code then runs on the robot with `Chromapi(backend="hardware")`, which 
 | **💻 Software API** | Python control framework, hardware interfaces, and kinematic solvers. | [`/src/chromapi`](./src/chromapi/) | *Work in Progress* |
 | **📐 CAD Model** | 3D Mechanical design and robot assembly workspace. | [Onshape Document](https://cad.onshape.com/documents/3b2f6609101a115f427bb3a2/w/dda5699ddfe216cfbe74c22b/e/50bb405a7750d04ab1c412db?renderMode=0&uiState=6a7266a5caff22fc791d5f8b) | **Available** |
 | **📖 Documentation** | Specifications, design notes and communication protocol. | [Chroma Website](https://mowibox.github.io/chroma/en/chromapi/) | **Available** |
-| **🛠️ Hardware Utilities** | Full system diagnostics and motor configuration tools. | [`/src/chromapi/utils`](./src/chromapi/utils) | **Available** |
+| **🛠️ Hardware Utilities** | `chromapi` command: health check, servo setup and calibration tools. | [`/src/chromapi/utils`](./src/chromapi/utils) | **Available** |
 | **🤖 Simulation Models** | URDF and MJCF models for MuJoCo simulation. | [`/src/chromapi/model`](./src/chromapi/model) | **Available** |
 | **⚡ Electronics** | Custom PCB files, schematics, and low-level firmware. | [`chromapi_motherboard` repository](https://github.com/Mowibox/chromapi_motherboard) | **Available** |
 
@@ -121,7 +127,7 @@ This repository is multi-licensed:
 
 | Part | Path | License |
 | :--- | :--- | :--- |
-| Software (Python SDK, tools, tests, scripts) | [`/src`](./src/), [`/tests`](./tests/), [`/scripts`](./scripts/) | [Apache 2.0](./LICENSE) |
+| Software (Python SDK, tools, tests, scripts, Raspberry Pi setup) | [`/src`](./src/), [`/tests`](./tests/), [`/scripts`](./scripts/), [`/deploy`](./deploy/) | [Apache 2.0](./LICENSE) |
 | Robot description (URDF, MJCF, configuration files) | [`/src/chromapi/model`](./src/chromapi/model/) | [Apache 2.0](./LICENSE) |
 | 3D meshes (`.stl`, `.part`) | [`/src/chromapi/model/*/assets`](./src/chromapi/model/) | [CC BY-NC-SA 4.0](./src/chromapi/model/LICENSE) |
 | Documentation and media (README, images, GIFs) | [`/assets`](./assets/), this README | [CC BY-NC-SA 4.0](./src/chromapi/model/LICENSE) |
