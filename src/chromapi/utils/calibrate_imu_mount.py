@@ -5,8 +5,8 @@ Put the robot on a flat floor (rest pose or standing, chassis level) and don't t
 
 Usage::
 
-    chromapi-calibrate-imu
-    chromapi-calibrate-imu --duration 10 --dry-run
+    chromapi calibrate imu
+    chromapi calibrate imu --duration 10 --dry-run
 """
 
 import argparse

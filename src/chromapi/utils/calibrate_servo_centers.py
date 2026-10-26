@@ -2,9 +2,9 @@
 
 Usage::
 
-    chromapi-calibrate-servos --joint tl_2
-    chromapi-calibrate-servos --all
-    chromapi-calibrate-servos --joint tl_2 --verbose --dry-run
+    chromapi calibrate servos --joint tl_2
+    chromapi calibrate servos --all
+    chromapi calibrate servos --joint tl_2 --verbose --dry-run
 """
 
 import argparse
