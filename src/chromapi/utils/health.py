@@ -9,6 +9,7 @@ Usage::
 """
 
 import argparse
+import getpass
 import math
 import os
 import shutil
@@ -32,6 +33,7 @@ GRAVITY_TOLERANCE = 1.5  # [m.s⁻²] |acc| away from g by more than this: robot
 SERVO_ID_RANGE = range(1, 253)
 SOUND_CARD = "sndrpigooglevoi"  # see deploy/asound.conf
 AUDIO_KEEPALIVE = "chromapi-audio-keepalive"
+FAN_SERVICE = "chromapi-fan@"  # template unit, one instance per user: chromapi-fan@<user>
 BOOT_CMDLINES = (Path("/boot/firmware/cmdline.txt"), Path("/boot/cmdline.txt"))
 
 
@@ -64,7 +66,7 @@ def check_system(port: str) -> List[Result]:
 
     users = port_users(port)
     if users:
-        results.append((FAIL, "bridge port", f"{port} already open by {', '.join(users)}: stop it first"))
+        results.append((FAIL, "serial port", f"{port} already open by {', '.join(users)}: stop it first"))
 
     if shutil.which("aplay") is None:
         results.append((FAIL, "sound card", "aplay not found: sudo apt install alsa-utils"))
@@ -82,6 +84,14 @@ def check_system(port: str) -> List[Result]:
         else:
             results.append((WARN, "audio keep-alive", f"{state or 'missing'}: the speaker will click, "
                             f"install deploy/{AUDIO_KEEPALIVE}.service"))
+        state = subprocess.run(["systemctl", "is-active", FAN_SERVICE + getpass.getuser()],
+                               capture_output=True, text=True, check=False).stdout.strip()
+        if state == "active":
+            results.append((OK, "fan", "automatic, service active"))
+        else:
+            results.append((WARN, "fan", f"{state or 'missing'}: the fan is not driven, "
+                            f"install deploy/{FAN_SERVICE}.service, then "
+                            f"sudo systemctl enable --now {FAN_SERVICE}{getpass.getuser()}"))
     return results
 
 
@@ -107,8 +117,8 @@ def check_robot(bridge: Any, config: Dict[str, Any]) -> List[Result]:
     """Checks through the bridge. ``bridge`` must be connected; nothing here moves the robot."""
     id_map: Dict[str, int] = config["servos"]["id_map"]
     if not bridge.ping():
-        return [(FAIL, "bridge", "STM32 not answering: check the motherboard power and the UART wires")]
-    results = [(OK, "bridge", "STM32 answering")]
+        return [(FAIL, "motherboard", "STM32 not answering: check the motherboard power and connection to the Pi")]
+    results = [(OK, "motherboard", "STM32 answering")]
 
     version = bridge.get_version()
     if version is None:
@@ -172,7 +182,7 @@ def run_checks(port: str, calibration_path: Path) -> List[Result]:
     results = check_system(port) + check_calibration(calibration_path)
     bridge = BridgeClient(port=port)
     if not bridge.connect():
-        return results + [(FAIL, "bridge port", f"cannot open {port}: is the UART enabled in config.txt?")]
+        return results + [(FAIL, "serial port", f"cannot open {port}: is the UART enabled in config.txt?")]
     try:
         return results + check_robot(bridge, load_config(calibration_path=calibration_path))
     finally:

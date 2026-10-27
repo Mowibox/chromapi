@@ -3,19 +3,23 @@
 
 Usage::
 
+    chromapi run
     chromapi version
     chromapi calibrate servos --all
     chromapi calibrate imu --dry-run
     chromapi motors setup
+    chromapi health
+    chromapi flash
+    chromapi report
     chromapi <command> --help
 """
 
 import argparse
 import importlib
-import importlib.metadata
 import sys
 from typing import Any, Dict, List, Optional
 
+from chromapi.chromapi import sdk_version
 from chromapi.hardware.motherboard_bridge import BRIDGE_PROTOCOL_VERSION, BridgeClient
 
 #: ``chromapi <group> <tool>`` -> (``module:function`` of a tool that parses its own arguments, help).
@@ -27,13 +31,16 @@ TOOLS: Dict[str, Any] = {
     "motors": {
         "setup": ("chromapi.utils.setup_motors:main", "set each servo's ID and registers (--all: the 12 already assembled)"),
     },
+    "run": ("chromapi.web.app:main", "start the robot and its web app (http://<robot-ip>:5000)"),
     "health": ("chromapi.utils.health:main", "what is wrong with the robot, and what to do about it"),
+    "flash": ("chromapi.utils.flash:main", "update the motherboard firmware (STM32)"),
+    "report": ("chromapi.utils.report:main", "write a support report to post on Discord"),
 }
 
 
 def version(port: str) -> int:
     """Print the SDK, firmware and bridge protocol versions; return 1 if they can't work together."""
-    print(f"chromapi SDK {importlib.metadata.version('chromapi')} · bridge protocol {BRIDGE_PROTOCOL_VERSION}")
+    print(f"chromapi SDK {sdk_version()} · bridge protocol {BRIDGE_PROTOCOL_VERSION}")
     bridge = BridgeClient(port=port)
     if not bridge.connect():
         print(f"firmware     unknown (cannot open {port})")

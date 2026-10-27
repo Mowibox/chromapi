@@ -1,0 +1,17 @@
+# Cooling fan: holds the Pi's CPU near its target temperature, on its own (see chromapi/hardware/fan.py).
+# Installed as /etc/systemd/system/chromapi-fan@.service, then, for the user chromapi is installed for:
+#   sudo systemctl enable --now chromapi-fan@$USER
+[Unit]
+Description=Chromapi cooling fan (as %i)
+
+[Service]
+# %i: the name after the @, so that the service finds that user's chromapi install and PWM rights.
+User=%i
+ExecStart=/usr/bin/python3 -m chromapi.hardware.fan
+# /run/chromapi: where scripts request a speed.
+RuntimeDirectory=chromapi
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

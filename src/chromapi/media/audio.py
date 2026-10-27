@@ -95,8 +95,7 @@ def play_wav(
     Args:
         path: Path to a .wav file.
         wait: If True (default), block until playback finishes. If False, start playback and
-            return immediately - e.g. ``Chromapi.wake_up(play_sound=True)`` firing the cue
-            without delaying the stand-up transition.
+            return immediately, e.g. to play a cue without delaying a motion.
         volume: Linear gain applied before playback, defaults to 0.5.
         device: Passed straight to ``sounddevice`` (index, name substring, or ``None`` for the
             system default output).

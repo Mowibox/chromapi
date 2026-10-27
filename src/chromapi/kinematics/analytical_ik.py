@@ -35,8 +35,11 @@ WORKSPACE_MARGIN = 0.95
 
 
 def _rotation(axis: Vector3, angle: float) -> npt.NDArray[np.float64]:
-    """Rotation matrix of ``angle`` [rad] about the unit vector ``axis``."""
-    return np.asarray(SciRotation.from_rotvec(np.asarray(axis, dtype=float) * angle).as_matrix())
+    """Rotation matrix of ``angle`` [rad] about the unit vector ``axis`` (Rodrigues)."""
+    x, y, z = np.asarray(axis, dtype=float)
+    c, s = np.cos(angle), np.sin(angle)
+    k = np.array([[0.0, -z, y], [z, 0.0, -x], [-y, x, 0.0]])
+    return np.asarray(np.eye(3) + s * k + (1.0 - c) * (k @ k), dtype=float)
 
 
 def _wrap(angle: float) -> float:

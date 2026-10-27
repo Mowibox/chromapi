@@ -183,24 +183,27 @@ class BridgeClient:
         """Send a ping command to verify STM32 connectivity."""
         return self._ack(Command.PING_BRIDGE)
 
-    def set_led_color(self, index: int, r: int, g: int, b: int) -> bool:
+    def _led(self, cmd: Command, payload: bytes, wait: bool) -> bool:
+        """``wait=False``: no ACK wait, so a lost ACK cannot hold the bus (and the control loop) for a timeout."""
+        return self._ack(cmd, payload) if wait else self._send_nowait(cmd, payload)
+
+    def set_led_color(self, index: int, r: int, g: int, b: int, wait: bool = True) -> bool:
         """Set a single ring LED (0-17)."""
         if not (0 <= index < LED_RING_COUNT):
             raise ValueError(f"index must be in [0, {LED_RING_COUNT - 1}]")
-        return self._ack(
-            Command.SET_LED_COLOR,
-            bytes([LedTarget.LED_RING_SINGLE, index & 0xFF, r & 0xFF, g & 0xFF, b & 0xFF]),
-        )
+        payload = bytes([LedTarget.LED_RING_SINGLE, index & 0xFF, r & 0xFF, g & 0xFF, b & 0xFF])
+        return self._led(Command.SET_LED_COLOR, payload, wait)
 
-    def set_led_color_all(self, r: int, g: int, b: int) -> bool:
+    def set_led_color_all(self, r: int, g: int, b: int, wait: bool = True) -> bool:
         """Set all 18 ring LEDs to a single color."""
-        return self._ack(Command.SET_LED_COLOR, bytes([LedTarget.LED_RING_ALL, r & 0xFF, g & 0xFF, b & 0xFF]))
+        return self._led(Command.SET_LED_COLOR, bytes([LedTarget.LED_RING_ALL, r & 0xFF, g & 0xFF, b & 0xFF]), wait)
 
-    def set_led_color_bulk(self, colors: List[Tuple[int, int, int]]) -> bool:
+    def set_led_color_bulk(self, colors: List[Tuple[int, int, int]], wait: bool = True) -> bool:
         """Set all 18 ring LEDs individually in a single UART frame."""
         if len(colors) != LED_RING_COUNT:
             raise ValueError(f"Expected exactly {LED_RING_COUNT} (r,g,b) tuples.")
-        return self._ack(Command.SET_LED_RING_BULK, b''.join(bytes([r & 0xFF, g & 0xFF, b & 0xFF]) for r, g, b in colors))
+        payload = b''.join(bytes([r & 0xFF, g & 0xFF, b & 0xFF]) for r, g, b in colors)
+        return self._led(Command.SET_LED_RING_BULK, payload, wait)
 
     @staticmethod
     def _decode_state_snapshot(payload: bytes) -> Dict[str, Any]:

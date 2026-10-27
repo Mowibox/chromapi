@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# firmware_flash_manual.sh - Manually flash the STM32G431KBT6 firmware on the Chromapi motherboard
+# flash.sh - Flash the STM32G431KBT6 firmware on the Chromapi motherboard
 #
 # Wiring (see https://github.com/Mowibox/chromapi_motherboard/blob/main/hardware/schematic_pdf/):
 #   RPi UART_TXD (Pin 8)  -> STM32 USART1_RX (PA10)
@@ -12,7 +12,8 @@
 #   sudo apt install stm32flash gpiod
 #
 # Usage:
-#   ./firmware_flash_manual.sh <path/to/firmware.hex>
+#   chromapi flash [path/to/firmware.hex]   (checks the port and the battery first)
+#   bash flash.sh <path/to/firmware.hex>
 
 set -euo pipefail
 
@@ -25,8 +26,8 @@ LINE_BOOT0=22
 LINE_NRST=23
 INIT_RETRIES=10
 
-log() { echo "[firmware_flash_manual] $*"; }
-fail() { echo "[firmware_flash_manual][FATAL] $*" >&2; exit 1; }
+log() { echo "[flash] $*"; }
+fail() { echo "[flash][FATAL] $*" >&2; exit 1; }
 
 # Argument validation
 if [ "$#" -ne 1 ]; then

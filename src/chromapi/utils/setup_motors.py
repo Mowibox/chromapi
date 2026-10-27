@@ -28,6 +28,9 @@ REG_LOCK = 55
 # Undocumented: acceleration cap of the internal motion profile.
 REG_MAX_ACCEL = 85
 MAX_ACCEL = 254
+# What configure_servo() writes, as read_servo_config() reads it back.
+EXPECTED = {"P": 32, "I": 0, "D": 0, "Acceleration": 0, "Max Accel": MAX_ACCEL, "Mode": 0,
+            "Max Voltage": 85, "Min Voltage": 60, "Unload Cond": 44}
 
 def read_servo_config(bridge: BridgeClient, servo_id: int) -> Dict[str, Optional[int]]:
     """Read back current configuration registers directly from the hardware."""
@@ -43,8 +46,8 @@ def read_servo_config(bridge: BridgeClient, servo_id: int) -> Dict[str, Optional
         "Unload Cond": bridge.read_servo_register(servo_id, REG_UNLOAD_COND, 1),
     }
 
-def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> None:
-    """Unlock, configure, assign ID, and verify parameters."""
+def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> Dict[str, Optional[int]]:
+    """Unlock, configure, assign ID, and verify parameters; return the registers that read back wrong."""
     print(f"[*] Unlocking EEPROM for ID {target_id}...")
     bridge.write_servo_register(target_id, REG_LOCK, 1, 0)
     time.sleep(0.05)
@@ -81,6 +84,7 @@ def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> None:
     print("="*40)
     
     cfg = read_servo_config(bridge, new_id)
+    wrong = {key: val for key, val in cfg.items() if key in EXPECTED and val != EXPECTED[key]}
     
     for key, val in cfg.items():
         if val is None:
@@ -89,6 +93,7 @@ def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> None:
             print(f" {key:12} : {val}")
     print("="*40)
     print(" Max Accel only applies after a servo power cycle.")
+    return wrong
 
 def main() -> int:
     """Run the interactive prompt for servo provisioning, or reconfigure every servo with ``--all``."""
@@ -103,16 +108,21 @@ def main() -> int:
 
     if args.all:
         try:
-            missing = []
+            missing, wrong = [], {}
             for servo_id in sorted(load_config()["servos"]["id_map"].values()):
                 if bridge.ping_servo(servo_id):
-                    configure_servo(bridge, servo_id, servo_id)
+                    wrong_regs = configure_servo(bridge, servo_id, servo_id)
+                    if wrong_regs:
+                        wrong[servo_id] = wrong_regs
                 else:
                     missing.append(servo_id)
         finally:
             bridge.close()
         if missing:
             print(f"[!] Not answering, not configured: {missing}. Check their cables and run again.")
+        if wrong:
+            print(f"[!] Read back different from what was written (lost frame?): {wrong}. Run again.")
+        if missing or wrong:
             return 1
         print("\n[*] All servos configured. Power-cycle the robot so that Max Accel applies.")
         return 0

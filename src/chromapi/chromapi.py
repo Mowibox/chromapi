@@ -22,6 +22,7 @@ not what you want to power on into for locomotion. Because of this:
 
 from __future__ import annotations
 
+import importlib.metadata
 import logging
 import os
 import signal
@@ -75,7 +76,17 @@ IDLE_LED_RGB = (63, 1, 88)
 #: Feetech convention (see stm32-sts3215-lib's ``sts3215_regs.h``/memory table).
 STS3215_STEPS_PER_REV = 4096  # [step.rev⁻¹]
 STS3215_CENTER_STEP = 2048  # [step]
+#: While walking, servo replies get lost now and then (~0.1 s): report a servo only after this many control
+#: ticks in a row without an answer, which means it is really disconnected.
+SERVO_MISSING_CYCLES = 50
 _STEPS_PER_RAD = STS3215_STEPS_PER_REV / (2.0 * np.pi)  # [step.rad⁻¹]
+
+def sdk_version() -> str:
+    """Installed version of this SDK."""
+    try:
+        return importlib.metadata.version("chromapi")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown (not installed)"
 
 # ========================================================================================
 # Robot state
@@ -88,6 +99,8 @@ class RobotState:
     joint_velocities: Dict[str, float] = field(default_factory=dict)  # [rad.s⁻¹]
     joint_loads: Dict[str, float] = field(default_factory=dict)  # [0.1 %] of rated torque (raw STS3215 load)
     joint_currents: Dict[str, float] = field(default_factory=dict)  # [A] motor current magnitude (≥ 0)
+    joint_temperatures: Dict[str, float] = field(default_factory=dict)  # [°C]
+    missing_servos: List[str] = field(default_factory=list)  # joints whose servo stopped answering
     imu_quat_wxyz: Tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)  # unit quaternion
     imu_gyro: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [rad.s⁻¹] bias-corrected
     imu_gyro_raw: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # [rad.s⁻¹] as read by the sensor
@@ -174,6 +187,9 @@ class HardwareBackend(RobotBackend):
         """
         self._imu_mount: ImuMount = imu_mount if imu_mount is not None else ImuMount()
         self._bridge = BridgeClient(port=port, baudrate=baudrate)
+        self.firmware_version: Optional[str] = None  # "major.minor.patch", read by connect()
+        self._misses: Dict[str, int] = {}  # consecutive bus cycles without an answer, per joint
+        self._missing_since: Dict[str, float] = {}  # [s] joints reported missing, since when
         self._id_map: Dict[str, int] = dict(servo_config["id_map"])
         self._sign: Dict[str, int] = dict(servo_config["sign"])
         self._zero_offset: Dict[str, int] = dict(servo_config["zero_offset_steps"])  # [step]
@@ -187,15 +203,19 @@ class HardwareBackend(RobotBackend):
         if not self._bridge.connect():
             return False
         version = self._bridge.get_version()
+        if version is not None:
+            self.firmware_version = ".".join(map(str, version[1]))
         if version is None:
-            logger.warning("Motherboard firmware older than 1.1.0 (no version command) - please update it")
+            logger.warning("chromapi SDK %s, motherboard firmware older than 1.1.0 (no version command) - "
+                           "please update it", sdk_version())
         elif version[0] != BRIDGE_PROTOCOL_VERSION:
             logger.warning(
-                "Motherboard firmware %d.%d.%d speaks bridge protocol %d, this SDK speaks %d - update one of them",
-                *version[1], version[0], BRIDGE_PROTOCOL_VERSION,
+                "Motherboard firmware %d.%d.%d speaks bridge protocol %d, chromapi SDK %s speaks %d - "
+                "update one of them", *version[1], version[0], sdk_version(), BRIDGE_PROTOCOL_VERSION,
             )
         else:
-            logger.info("Motherboard firmware %d.%d.%d, bridge protocol %d", *version[1], version[0])
+            logger.info("chromapi SDK %s, motherboard firmware %d.%d.%d, bridge protocol %d",
+                        sdk_version(), *version[1], version[0])
         return True
 
     def close(self) -> None:
@@ -243,6 +263,17 @@ class HardwareBackend(RobotBackend):
             )
             state.joint_loads[joint] = float(servo["load"])
             state.joint_currents[joint] = servo["current_A"]  # magnitude, no direction
+            state.joint_temperatures[joint] = float(servo["temp_C"])
+            self._misses[joint] = 0 if servo["fresh"] else self._misses.get(joint, 0) + 1
+            if self._misses[joint] >= SERVO_MISSING_CYCLES:
+                state.missing_servos.append(joint)
+                if joint not in self._missing_since:
+                    self._missing_since[joint] = state.timestamp
+                    logger.warning("Servo %s (id %d) not answering (battery %.2f V, %.2f A)", joint, servo["id"],
+                                   snapshot["power"]["voltage_V"], snapshot["power"]["current_A"])
+            elif joint in self._missing_since and servo["fresh"]:
+                logger.warning("Servo %s (id %d) back after %.2f s", joint, servo["id"],
+                               state.timestamp - self._missing_since.pop(joint))
 
         # The firmware sends the IMU in the URDF/MJCF "imu" frame (x forward, y left, z up), as MuJoCo does
         state.imu_quat_wxyz = self._imu_mount.apply(snapshot["imu"]["quat"])
@@ -271,15 +302,15 @@ class HardwareBackend(RobotBackend):
 
     def set_led_all(self, r: int, g: int, b: int) -> None:
         """Set every ring LED via a single bridge frame."""
-        self._bridge.set_led_color_all(r, g, b)
+        self._bridge.set_led_color_all(r, g, b, wait=False)
 
     def set_led(self, index: int, r: int, g: int, b: int) -> None:
         """Set a single ring LED via the bridge."""
-        self._bridge.set_led_color(index, r, g, b)
+        self._bridge.set_led_color(index, r, g, b, wait=False)
 
     def set_led_bulk(self, colors: Sequence[Tuple[int, int, int]]) -> None:
         """Set all 18 ring LEDs via a single bridge frame."""
-        self._bridge.set_led_color_bulk(list(colors))
+        self._bridge.set_led_color_bulk(list(colors), wait=False)
 
 
 #: Chassis height [m] at which the robot rests on the floor in ZERO_POSE (settles at 0.1225 m).
@@ -908,12 +939,11 @@ class Chromapi:
             self.approach_pose(), duration=duration or self.approach_duration_s
         )
 
-    def wake_up(self, duration: Optional[float] = None, play_sound: bool = True) -> None:
+    def wake_up(self, duration: Optional[float] = None) -> None:
         """Smoothly stand up from whatever configuration the robot is currently in.
 
         Args:
             duration: Transition time [s] (default: ``config["control"]["wake_up_duration_s"]``).
-            play_sound: If True (default), plays :data:`DEFAULT_CHROMAPI_SCREAM_PATH`.
 
         """
         self.enable_motors()
@@ -942,10 +972,6 @@ class Chromapi:
         self.set_joint_targets(yaw_prestage, duration=prestage_duration)
         time.sleep(prestage_duration + _YAW_PRESTAGE_SETTLE_S)
         self.set_joint_targets(target, duration=rise_duration)
-        # time.sleep(rise_duration + 0.1)
-        # if play_sound:
-        #     from chromapi.media.audio import play_wav
-        #     play_wav(DEFAULT_WAKE_UP_SOUND_PATH, wait=False)
 
     def rest(self, duration: Optional[float] = None, disable_torque: bool = True) -> None:
         """Smoothly crouch down to :meth:`rest_pose` and optionally release motor torque.

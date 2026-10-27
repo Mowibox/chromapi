@@ -602,6 +602,11 @@ class WalkMove(Move):
         """Forward to :meth:`GaitEngine.set_velocity` (``vx``, ``vy`` [m.s⁻¹], ``wz`` [rad.s⁻¹])."""
         self.gait.set_velocity(vx, vy, wz)
 
+    @property
+    def settled(self) -> bool:
+        """Stopped, every foot down on its neutral footprint: safe to lift a leg."""
+        return self.gait._settled()
+
     def step(self, state: RobotState, command: MotorCommand, dt: float) -> None:
         """Advance the gait and write the resulting joint targets into ``command``."""
         del state  # unused - GaitEngine is pure dead reckoning
