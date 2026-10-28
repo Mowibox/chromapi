@@ -25,6 +25,24 @@ from chromapi.utils.health import port_users
 FIRMWARE_DIR = Path(__file__).resolve().parents[1] / "assets" / "firmware"
 FLASH_SCRIPT = FIRMWARE_DIR / "flash.sh"
 SHIPPED_HEX = FIRMWARE_DIR / "chromapi_stm32_core.hex"
+SHIPPED_VERSION = SHIPPED_HEX.with_suffix(".version")  # "major.minor.patch" of SHIPPED_HEX
+
+
+def shipped_version() -> Optional[str]:
+    """Version of the firmware shipped with this SDK; None if this install has none."""
+    try:
+        return SHIPPED_VERSION.read_text().strip() or None
+    except OSError:
+        return None
+
+
+def update_available(installed: Optional[str], shipped: Optional[str]) -> bool:
+    """Whether ``shipped`` is newer than ``installed``."""
+    if shipped is None:
+        return False
+    if installed is None:
+        return True
+    return tuple(map(int, shipped.split("."))) > tuple(map(int, installed.split(".")))
 
 
 def read_firmware(port: str) -> Optional[str]:
@@ -77,15 +95,21 @@ def main() -> int:
     if percent is not None and percent < critical:
         print(f"[!] Battery at {percent:.0f} %: charge it before flashing")
         return 1
-    print(f"Installed firmware: {before or 'unknown (not answering, or older than 1.1.0)'}")
+    print(f"Installed firmware: {before or 'unknown (not answering, or older than 2.0.0)'}")
     print(f"Battery: {'unknown' if percent is None else f'{percent:.0f} %'}")
     print(f"New firmware: {args.hex}")
     if not args.yes and input("Lay the robot down: the servos go limp. Flash now? [y/N] ").strip().lower() != "y":
         print("Cancelled.")
         return 1
 
-    if subprocess.run(["bash", str(FLASH_SCRIPT), str(args.hex)], check=False).returncode != 0:
-        print("[!] Flash failed. The board is left in reset; run 'chromapi flash' again.")
+    for attempt in (1, 2):
+        if subprocess.run(["bash", str(FLASH_SCRIPT), str(args.hex)], check=False).returncode == 0:
+            break
+        if attempt == 1:
+            print("[!] The bootloader did not answer: trying again")
+    else:
+        print("[!] Flash failed twice. The STM32 bootloader cannot be erased: check the wiring and the UART, then "
+              "run 'chromapi flash' again.")
         return 1
 
     # The firmware calibrates its IMU at boot before answering: its timeouts are expected, not warnings.

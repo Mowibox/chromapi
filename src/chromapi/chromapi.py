@@ -29,7 +29,7 @@ import signal
 import threading
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -79,6 +79,8 @@ STS3215_CENTER_STEP = 2048  # [step]
 #: While walking, servo replies get lost now and then (~0.1 s): report a servo only after this many control
 #: ticks in a row without an answer, which means it is really disconnected.
 SERVO_MISSING_CYCLES = 50
+#: After a reset (power-on, a flash) the firmware calibrates its IMU, so we wait a little before it answers anything [s].
+STM32_BOOT_WAIT_S = 10.0
 _STEPS_PER_RAD = STS3215_STEPS_PER_REV / (2.0 * np.pi)  # [step.rad⁻¹]
 
 def sdk_version() -> str:
@@ -202,11 +204,12 @@ class HardwareBackend(RobotBackend):
         """Open the UART serial port to the STM32 bridge, and log the firmware version."""
         if not self._bridge.connect():
             return False
+        self._wait_until_answering()
         version = self._bridge.get_version()
         if version is not None:
             self.firmware_version = ".".join(map(str, version[1]))
         if version is None:
-            logger.warning("chromapi SDK %s, motherboard firmware older than 1.1.0 (no version command) - "
+            logger.warning("chromapi SDK %s, motherboard firmware older than 2.0.0 (no version command) - "
                            "please update it", sdk_version())
         elif version[0] != BRIDGE_PROTOCOL_VERSION:
             logger.warning(
@@ -221,6 +224,30 @@ class HardwareBackend(RobotBackend):
     def close(self) -> None:
         """Close the UART serial port."""
         self._bridge.close()
+
+    def _wait_until_answering(self) -> bool:
+        """Wait (at most STM32_BOOT_WAIT_S) for the STM32's state stream."""
+        bridge_log = logging.getLogger("BridgeClient")
+        level = bridge_log.level
+        bridge_log.setLevel(logging.CRITICAL)  # its timeouts are expected while the board boots
+        try:
+            deadline = time.monotonic() + STM32_BOOT_WAIT_S  # [s]
+            waiting = False
+            while time.monotonic() < deadline:
+                if self._bridge.get_state() is not None:
+                    return True
+                if not waiting:
+                    logger.info("Waiting for the motherboard to answer (it calibrates its IMU after a reset)...")
+                    waiting = True
+            logger.warning("The motherboard does not answer after %.0f s", STM32_BOOT_WAIT_S)
+            return False
+        finally:
+            bridge_log.setLevel(level)
+
+    def apply_calibration(self, config: Dict[str, Any]) -> None:
+        """Take the servo zero offsets and the IMU mount of ``config`` (after ``chromapi calibrate``)."""
+        self._zero_offset = dict(config["servos"]["zero_offset_steps"])  # [step]
+        self._imu_mount = ImuMount(tuple(config.get("imu", {}).get("mount_offset_wxyz", IDENTITY_QUAT)))
 
     def _rad_to_steps(self, joint: str, angle_rad: float) -> int:
         raw = (  # [step]
@@ -544,6 +571,27 @@ class MuJoCoBackend(RobotBackend):
         self._data.qpos[3:7] = quat_wxyz
         self._data.qvel[:] = 0.0
         self._mujoco.mj_forward(self._model, self._data)
+
+    def start_in_pose(self, q: Dict[str, float], settle_s: float = 0.5) -> None:
+        """Put the robot in the joint configuration ``q`` [rad], lying on the floor - simulation-only.
+
+        Call before :meth:`connect`: the chassis is lowered until something touches the floor, then the
+        physics runs ``settle_s`` [s] with the actuators holding ``q``.
+        """
+        for joint, angle in q.items():
+            self._data.joint(joint).qpos[0] = angle
+            self._data.actuator(joint).ctrl[0] = angle
+        self._data.qvel[:] = 0.0
+        z = _SPAWN_HEIGHT_M + 0.1  # [m] above any crouch
+        while z > 0.0:
+            self._data.qpos[2] = z
+            self._mujoco.mj_forward(self._model, self._data)
+            contacts = (self._data.contact[i] for i in range(self._data.ncon))
+            if any(self._floor_geom_id in (c.geom1, c.geom2) for c in contacts):
+                break
+            z -= 0.001
+        for _ in range(round(settle_s / self._model.opt.timestep)):
+            self._mujoco.mj_step(self._model, self._data)
 
     def set_chassis_force(self, force_xyz: Sequence[float] = (0.0, 0.0, 0.0)) -> None:
         """Apply an external world-frame force [N] at the chassis CoM until reset - simulation-only, for push tests."""
@@ -1077,7 +1125,7 @@ class Chromapi:
             resolved_params = _GaitParams(pattern=pattern)
 
         current = self._walk_move
-        if current is None or resolved_params != current.gait.params:
+        if current is None or replace(resolved_params, body_height=current.gait.params.body_height) != current.gait.params:
             current = _WalkMove(self.kinematics, resolved_params)
             self._walk_move = current
         current.set_velocity(vy, -vx, wz)  # chassis +X=left, +Y=backward - see this method's docstring

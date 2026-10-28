@@ -122,7 +122,7 @@ def check_robot(bridge: Any, config: Dict[str, Any]) -> List[Result]:
 
     version = bridge.get_version()
     if version is None:
-        results.append((FAIL, "firmware", "older than 1.1.0 (no version command): update it"))
+        results.append((FAIL, "firmware", "older than 2.0.0 (no version command): update it"))
     elif version[0] != BRIDGE_PROTOCOL_VERSION:
         results.append((FAIL, "firmware", f"{'.'.join(map(str, version[1]))} speaks bridge protocol {version[0]}, "
                         f"this SDK speaks {BRIDGE_PROTOCOL_VERSION}: update one of them"))

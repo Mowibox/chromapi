@@ -28,6 +28,9 @@ TOOLS: Dict[str, Any] = {
         "servos": ("chromapi.utils.calibrate_servo_centers:main", "find each servo's center from its mechanical stops"),
         "imu": ("chromapi.utils.calibrate_imu_mount:main", "measure the IMU board tilt on a level floor"),
     },
+    "access": {
+        "reset": ("chromapi.web.access:reset_main", "forget the web app's access code: the next visitor chooses one"),
+    },
     "motors": {
         "setup": ("chromapi.utils.setup_motors:main", "set each servo's ID and registers (--all: the 12 already assembled)"),
     },
@@ -50,7 +53,7 @@ def version(port: str) -> int:
     finally:
         bridge.close()
     if fw is None:
-        print("firmware     older than 1.1.0, or not answering - update it")
+        print("firmware     older than 2.0.0, or not answering - update it")
         return 1
     protocol, (major, minor, patch) = fw
     print(f"firmware     {major}.{minor}.{patch} · bridge protocol {protocol}")
