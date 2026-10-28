@@ -328,7 +328,7 @@ class BridgeClient:
     def get_version(self) -> Optional[Tuple[int, Tuple[int, int, int]]]:
         """Return ``(protocol, (major, minor, patch))`` of the firmware, or None.
 
-        None also means a firmware older than 1.1.0, which does not know this command.
+        None also means a firmware older than 2.0.0, which does not know this command.
         """
         reply = self._transact(Command.GET_VERSION, want=(Response.VERSION,))
         if reply is None or reply[0] != Response.VERSION or len(reply[1]) != 4:

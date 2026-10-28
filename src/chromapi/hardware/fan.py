@@ -30,6 +30,7 @@ KP = 5.0  # [%.°C⁻¹]
 KI = 0.1  # [%.°C⁻¹.s⁻¹]
 MIN_RUN_PERCENT = 30.0  # [%] slower, the fan may stall: the automatic mode stops it instead
 PERIOD_S = 1.0  # [s] also the delay before a request applies
+EXPORT_TIMEOUT_S = 2.0  # [s] for udev to give the freshly exported channel to the gpio group
 
 
 def _pwm_dir(chip: int = PWM_CHIP, channel: int = PWM_CHANNEL) -> Path:
@@ -85,16 +86,21 @@ class Fan:
         self.percent = 0.0  # [%]
         self.target_c = target_c  # [°C]
         self._integral = 0.0  # [%]
-        try:
-            if not self._pwm.exists():
-                (self._pwm.parent / "export").write_text(str(channel))
+        deadline = time.monotonic() + EXPORT_TIMEOUT_S
+        while True:
+            try:
+                if not self._pwm.exists():
+                    (self._pwm.parent / "export").write_text(str(channel))
+                (self._pwm / "period").write_text(str(self._period_ns))
+                (self._pwm / "duty_cycle").write_text("0")
+                (self._pwm / "enable").write_text("1")
+                break
+            except OSError as exc:
+                # Right after the export, udev has not yet handed the new channel's files to the gpio group.
+                if not isinstance(exc, PermissionError) or time.monotonic() > deadline:
+                    logger.warning("Fan PWM unavailable (%s): no fan control", exc)
+                    return
                 time.sleep(0.1)
-            (self._pwm / "period").write_text(str(self._period_ns))
-            (self._pwm / "duty_cycle").write_text("0")
-            (self._pwm / "enable").write_text("1")
-        except OSError as exc:
-            logger.warning("Fan PWM unavailable (%s): no fan control", exc)
-            return
         self.available = True
 
     def set_percent(self, percent: float) -> None:

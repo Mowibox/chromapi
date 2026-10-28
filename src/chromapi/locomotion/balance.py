@@ -1,11 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Standing balance - stability margin, attitude PD and a free-base QP (chapter 9).
-
-The QP adds three tasks to the foot tasks of :class:`~chromapi.kinematics.kromatics.Kromatics`,
-with the floating base unmasked (18 DoF): a chassis orientation task driven by the attitude
-PD, a CoM task over the support polygon centre, and a posture task towards ``WAKE_UP_POSE``
-that takes the redundancy left (body height).
-"""
+"""Balance and chassis posing module for Chromapi - stability margin, attitude PD and a free-base QP."""
 
 from __future__ import annotations
 
@@ -22,7 +16,7 @@ from scipy.spatial.transform import Rotation as SciRotation
 
 from chromapi.chromapi import DEFAULT_URDF_PATH, MotorCommand, Move, RobotState
 from chromapi.kinematics.kromatics import Kromatics
-from chromapi.kinematics.poses import WAKE_UP_POSE
+from chromapi.kinematics.poses import APPROACH_POSE, REST_POSE, WAKE_UP_POSE
 from chromapi.kinematics.topology import FOOT_FRAME_NAMES, JOINT_NAMES, LEG_NAMES
 
 logger = logging.getLogger(__name__)
@@ -75,9 +69,9 @@ class BalanceGains:
     w_feet: float = 1e3
     w_attitude: float = 10.0
     w_com: float = 10.0
-    w_posture: float = 1e-2
+    w_posture: float = 1e-3
     iterations: int = 8
-    max_joint_speed: float = 1.5  # [rad.s⁻¹] cap on each sent joint target: the QP alone jumps tens of degrees per tick
+    max_joint_speed: float = 1.5  # [rad.s⁻¹]
 
 
 class AttitudeCorrector:
@@ -90,6 +84,7 @@ class AttitudeCorrector:
         self.roll_pitch = (0.0, 0.0)  # [rad] measured, chassis frame
         self.gyro = np.zeros(3)  # [rad.s⁻¹] chassis frame
         self.rpy_cmd = np.zeros(2)  # [rad] commanded chassis (roll, pitch) in the feet frame
+        self.correction = np.zeros(2)  # [rad] the PD's integrated part of rpy_cmd (a slope, a push)
 
     def measure(self, state: RobotState) -> None:
         """Chassis roll/pitch and gyro from the IMU."""
@@ -99,16 +94,22 @@ class AttitudeCorrector:
         self.roll_pitch = (float(roll), float(pitch))
         self.gyro = self._R_chassis_imu @ np.asarray(state.imu_gyro)
 
-    def correct(self, dt: float) -> npt.NDArray[np.float64]:
-        """Integrate the PD over ``dt`` [s]; returns ``rpy_cmd``."""
+    def correct(self, dt: float, target: npt.ArrayLike = (0.0, 0.0)) -> npt.NDArray[np.float64]:
+        """``rpy_cmd`` for the measured tilt ``target`` (roll, pitch) [rad], after ``dt`` [s].
+
+        The target goes straight through, and the PD integrates only
+        what is left: the measured error to the target, i.e. a slope or a push.
+        """
         g = self.gains
-        w_star = -g.kp * np.asarray(self.roll_pitch) - g.kd * self.gyro[:2]
-        self.rpy_cmd = np.clip(self.rpy_cmd + w_star * dt, -g.max_tilt, g.max_tilt)
+        target = np.asarray(target, dtype=float)
+        w_star = -g.kp * (np.asarray(self.roll_pitch) - target) - g.kd * self.gyro[:2]
+        self.correction = np.clip(self.correction + w_star * dt, -g.max_tilt, g.max_tilt)
+        self.rpy_cmd = target + self.correction
         return self.rpy_cmd
 
 
 class BalanceMove(Move):
-    """Stand still and keep the chassis level, feet planted where they were at start."""
+    """Stand still, feet planted where they were at start; the chassis level, or posed by :meth:`set_body_pose`."""
 
     def __init__(
         self,
@@ -133,8 +134,12 @@ class BalanceMove(Move):
         self._est = Kromatics(urdf_path, dt=dt)
         self._kin = Kromatics(urdf_path, dt=dt)
         robot = self._kin.robot
+        for name in JOINT_NAMES:
+            lower, upper = robot.get_joint_limits(name)
+            poses = [pose[name] for pose in (WAKE_UP_POSE, REST_POSE, APPROACH_POSE)]
+            robot.set_joint_limits(name, min(lower, *poses), max(upper, *poses))
 
-        solver = placo.KinematicsSolver(robot)  # free base: no mask_fbase
+        solver = placo.KinematicsSolver(robot)  # Free the base!!
         solver.enable_joint_limits(True)
         solver.dt = dt
         self._solver = solver
@@ -146,7 +151,6 @@ class BalanceMove(Move):
         self._attitude = solver.add_orientation_task(_CHASSIS_FRAME, np.eye(3))
         self._attitude.configure("attitude", "soft", self.gains.w_attitude)
         self._com = solver.add_com_task(np.zeros(3))
-        self._com.mask.set_axises("xy")
         self._com.configure("com", "soft", self.gains.w_com)
         posture = solver.add_joints_task()
         posture.set_joints(dict(WAKE_UP_POSE))
@@ -157,6 +161,12 @@ class BalanceMove(Move):
 
         self._started = False
         self.margin = 0.0  # [m]
+        self.com0 = np.zeros(3)  # [m] CoM at start, feet frame
+        self._body_xyz = np.zeros(3)  # [m] CoM offset from com0, feet frame
+        self._body_rp = np.zeros(2)  # [rad] chassis (roll, pitch) target, measured from level
+        self._body_yaw = 0.0  # [rad] chassis yaw over the feet, open loop (the IMU yaw drifts)
+        self._lifted: Tuple[Optional[str], Dict[str, float]] = (None, {})
+        self._masked: Optional[str] = None  # leg whose joints the QP currently leaves alone
 
     @property
     def roll_pitch(self) -> Tuple[float, float]:
@@ -168,9 +178,35 @@ class BalanceMove(Move):
         """Commanded chassis (roll, pitch) in the feet frame [rad]."""
         return self.attitude.rpy_cmd
 
+    @property
+    def feet(self) -> Dict[str, npt.NDArray[np.float64]]:
+        """Foot positions held, feet frame (= chassis frame at start) [m]."""
+        return {leg: task.target_world.copy() for leg, task in self._feet.items()}
+
+    def set_body_pose(self, xyz: npt.ArrayLike = (0.0, 0.0, 0.0), rpy: npt.ArrayLike = (0.0, 0.0)) -> None:
+        """Pose the chassis over the planted feet; zero is the start pose, level.
+
+        Args:
+            xyz: CoM offset from its start position, in the feet frame (+X left, +Y backward, +Z up) [m].
+            rpy: Chassis (roll, pitch) [rad], measured by the IMU: roll about chassis X tilts nose-down for
+                roll > 0, pitch about Y leans sideways. The attitude PD reaches it on a slope too. An optional
+                third value turns the chassis over the feet (yaw, +Z, to the left), without feedback.
+
+        """
+        rpy = np.asarray(rpy, dtype=float)
+        self._body_xyz = np.array(xyz, dtype=float)
+        self._body_rp = rpy[:2].copy()
+        self._body_yaw = float(rpy[2]) if len(rpy) > 2 else 0.0
+
+    def lift(self, leg: Optional[str], q_leg: Optional[Dict[str, float]] = None) -> None:
+        """Let ``leg`` off the ground, its 3 joints at ``q_leg`` [rad] (written as is); None: all feet down again."""
+        self._lifted = (leg, dict(q_leg or {}))
+
     def on_start(self) -> None:
-        """Re-anchor the feet on the next tick."""
+        """Re-anchor the feet on the next tick, start pose, all feet down."""
         self._started = False
+        self.set_body_pose()
+        self.lift(None)
 
     def _anchor(self, q: Dict[str, float]) -> None:
         """QP world frame = chassis frame at start; feet held where they are."""
@@ -181,9 +217,11 @@ class BalanceMove(Move):
         robot.update_kinematics()
         for leg in LEG_NAMES:
             self._feet[leg].target_world = robot.get_T_world_frame(FOOT_FRAME_NAMES[leg])[:3, 3].copy()
-        # Hold the start posture, not WAKE_UP_POSE: its knees sit past the URDF +-90 deg limits.
+        self.com0 = robot.com_world().copy()
+        # Hold the start posture, not WAKE_UP_POSE: after a walk the robot does not stand exactly there.
         self._posture.set_joints(dict(q))
         self.attitude.rpy_cmd[:] = 0.0
+        self.attitude.correction[:] = 0.0
         self._started = True
 
     def _estimate(self, state: RobotState) -> float:
@@ -204,22 +242,34 @@ class BalanceMove(Move):
         self.attitude.measure(state)
         self.margin = self._estimate(state)
         if not self._started:
-            self._anchor(_measured_q(state))
-            command.target_angles.update(_measured_q(state))
+            # The targets the servos hold, not the measured joints: those sag under the load.
+            start = {**_measured_q(state), **{j: command.target_angles[j] for j in JOINT_NAMES if j in command.target_angles}}
+            self._anchor(start)
+            command.target_angles.update(start)
         if not self.enabled:
             return
 
         g = self.gains
-        rpy_cmd = self.attitude.correct(dt)
+        rpy_cmd = self.attitude.correct(dt, self._body_rp)
         self._attitude.R_world_frame = SciRotation.from_euler(
-            "ZYX", [0.0, rpy_cmd[1], rpy_cmd[0]]
+            "ZYX", [self._body_yaw, rpy_cmd[1], rpy_cmd[0]]
         ).as_matrix()
         # ponytail: CoM target in the feet frame, = level frame only on flat ground.
-        stance = _stance_legs(state) or LEG_NAMES
-        centre = np.mean([self._feet[leg].target_world for leg in stance], axis=0)
-        self._com.target_world = centre
+        centre = np.mean([task.target_world for task in self._feet.values()], axis=0)
+        self._com.target_world = np.array([centre[0], centre[1], self.com0[2]]) + self._body_xyz
 
         robot = self._kin.robot
+        lifted, q_lifted = self._lifted
+        if lifted != self._masked:
+            for leg in (self._masked, lifted):
+                if leg is not None:
+                    down = leg != lifted
+                    self._feet[leg].configure(f"foot_{leg}", "soft", g.w_feet if down else 0.0)
+                    for joint in (f"{leg}_1", f"{leg}_2", f"{leg}_3"):
+                        (self._solver.unmask_dof if down else self._solver.mask_dof)(joint)
+            self._masked = lifted
+        for joint, value in q_lifted.items():
+            robot.set_joint(joint, value)
         for _ in range(g.iterations):
             try:
                 self._solver.solve(True)
@@ -230,6 +280,9 @@ class BalanceMove(Move):
         # Rate-limit against the targets actually sent, and resume the QP from them next tick.
         step = g.max_joint_speed * dt  # [rad]
         for name in JOINT_NAMES:
+            if name in q_lifted:
+                command.target_angles[name] = q_lifted[name]  # the gesture is already smooth, and faster
+                continue
             sent = command.target_angles.get(name, float(robot.get_joint(name)))
             target = sent + float(np.clip(robot.get_joint(name) - sent, -step, step))
             command.target_angles[name] = target

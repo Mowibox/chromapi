@@ -7,7 +7,7 @@ import logging
 import re
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -22,9 +22,6 @@ from chromapi.kinematics.topology import (
     joint_name,
 )
 from chromapi.kinematics.types import FootTargets, JointDict, QVector, Vector3
-
-if TYPE_CHECKING:
-    from chromapi.kinematics.analytical_ik import AnalyticalIK, CalibrationReport
 
 try:
     import placo
@@ -288,16 +285,6 @@ class Kromatics:
                 [sign_x * x_reach, sign_y * y_reach, -abs(height)]
             )
         return targets
-
-    # -- analytical (closed-form) IK ----------------------------------------------------
-
-    def build_analytical_ik(
-        self, n_samples: int = 300, seed: int = 0
-    ) -> Tuple["AnalyticalIK", "CalibrationReport"]:
-        """Fallback alternative analytical IK to this instance's QP."""
-        from chromapi.kinematics.analytical_ik import AnalyticalIK
-
-        return AnalyticalIK.from_kromatics(self, n_samples=n_samples, seed=seed)
 
     # -- quasi-static body posing -------------------------------------------------------
 

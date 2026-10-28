@@ -227,3 +227,35 @@ def test_get_version(bridge: BridgeClient, mock_serial: DummySerial) -> None:
 def test_get_version_on_old_firmware(bridge: BridgeClient, mock_serial: DummySerial) -> None:
     bridge._send_frame = lambda *a, **k: mock_serial.rx.extend(_frame(Response.ERROR))  # 1.0.0: unknown command
     assert bridge.get_version() is None
+
+
+def test_connect_waits_for_a_booting_stm32(monkeypatch):
+    """After a reset the board is silent while it calibrates its IMU: ask its version only once it streams."""
+    import chromapi.chromapi as C
+
+    class Bridge:
+        def __init__(self, silent_reads):
+            self.silent_reads, self.calls = silent_reads, []
+
+        def connect(self):
+            return True
+
+        def get_state(self):
+            self.calls.append("state")
+            if self.silent_reads:
+                self.silent_reads -= 1
+                return None
+            return {}
+
+        def get_version(self):
+            self.calls.append("version")
+            return (C.BRIDGE_PROTOCOL_VERSION, (2, 0, 0))
+
+    backend = C.HardwareBackend(C.load_config(calibration_path="/nonexistent")["servos"])
+    backend._bridge = Bridge(silent_reads=3)
+    assert backend.connect() and backend.firmware_version == "2.0.0"
+    assert backend._bridge.calls == ["state"] * 4 + ["version"]
+
+    monkeypatch.setattr(C, "STM32_BOOT_WAIT_S", 0.05)  # a board that never answers: give up, still connected
+    backend._bridge = Bridge(silent_reads=10**9)
+    assert backend.connect() and backend._bridge.calls[-1] == "version"

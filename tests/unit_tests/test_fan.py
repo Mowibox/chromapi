@@ -27,3 +27,23 @@ def test_request(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert fan.requested() is None  # nothing requested: automatic
     assert fan.request(140.0) and fan.requested() == 100.0
     assert fan.request(None) and fan.requested() is None
+
+
+def test_waits_for_udev_after_export(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Freshly exported, the channel refuses writes until udev gives it to the gpio group: retry, then run."""
+    chip = tmp_path / "pwmchip0"
+    chip.mkdir()
+    refusals = [PermissionError("udev not done yet")] * 3
+    real_write = Path.write_text
+
+    def write_text(path: Path, data: str) -> int:
+        if path.name == "export":
+            (path.parent / f"pwm{data}").mkdir()
+        elif path.name == "period" and refusals:
+            raise refusals.pop()
+        return real_write(path, data)
+
+    monkeypatch.setattr(Path, "write_text", write_text)
+    monkeypatch.setattr(fan, "_pwm_dir", lambda chip_=0, channel=1: chip / f"pwm{channel}")
+    assert fan.Fan().available and not refusals
+    assert (chip / "pwm1" / "enable").read_text() == "1"

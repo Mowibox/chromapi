@@ -3,9 +3,8 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -14,11 +13,6 @@ from chromapi.chromapi import MotorCommand, Move, RobotState, _minimum_jerk
 from chromapi.kinematics.kromatics import Kromatics
 from chromapi.kinematics.topology import LEG_NAMES
 from chromapi.kinematics.types import FootTargets, JointDict, Vector3
-
-if TYPE_CHECKING:
-    from chromapi.kinematics.analytical_ik import AnalyticalIK, CalibrationReport
-
-logger = logging.getLogger(__name__)
 
 __all__ = [
     "WALK_POSTURE",
@@ -120,7 +114,6 @@ class GaitParams:
         max_acceleration_mps2: Linear-velocity ramp limit [m.s⁻²].
         max_angular_acceleration_rad_s2: Angular-velocity ramp limit [rad.s⁻²].
         diagonal_speed_ratio: Diagonal speed limit, ]0.5, 1.0].
-        solver: ``"qp"`` (default) or ``"analytical"``.
         ik_iterations: Number of iterations for the QP solver.
 
     """
@@ -137,18 +130,15 @@ class GaitParams:
     max_acceleration_mps2: float = 0.15  # [m.s⁻²]
     max_angular_acceleration_rad_s2: float = 1.0  # [rad.s⁻²]
     diagonal_speed_ratio: float = 0.78
-    solver: str = "qp"
     ik_iterations: Optional[int] = None
 
     def __post_init__(self) -> None:
-        """Validate ``phase_offsets``, ``duty_factor``, and ``solver``."""
+        """Validate ``phase_offsets`` and ``duty_factor``."""
         missing = set(LEG_NAMES) - set(self.phase_offsets)
         if missing:
             raise ValueError(f"GaitParams.phase_offsets is missing legs: {sorted(missing)}")
         if not 0.0 < self.duty_factor < 1.0:
             raise ValueError(f"GaitParams.duty_factor must be in (0, 1), got {self.duty_factor}")
-        if self.solver not in ("qp", "analytical"):
-            raise ValueError(f"GaitParams.solver must be 'qp' or 'analytical', got {self.solver!r}")
 
     @classmethod
     def crawl(cls) -> "GaitParams":
@@ -160,14 +150,14 @@ class GaitParams:
         """Trot tuning for faster walking. Move diagonal leg pairs at a time."""
         return cls(
             pattern="trot",
-            step_frequency=0.8,
-            duty_factor=0.6,
-            swing_height=0.02,
+            step_frequency=1.2,
+            duty_factor=0.61,
+            swing_height=0.021,
             body_height=WALK_POSTURE[2],
             x_reach=WALK_POSTURE[0],
             y_reach=WALK_POSTURE[1],
             phase_offsets=dict(_TROT_PHASE_OFFSETS),
-            workspace_reach_m=0.08,
+            workspace_reach_m=0.118,
         )
 
     @property
@@ -207,9 +197,6 @@ class GaitEngine:
         """Build the engine and reset it to a stand still pose."""
         self.kinematics = kinematics
         self.params = params or GaitParams.trot()
-        self._analytical: Optional["AnalyticalIK"] = None 
-        self._analytical_report: Optional["CalibrationReport"] = None
-        self._analytical_disabled = False
         self.reset()
 
     # -- setup / state ------------------------------------------------------------------
@@ -453,35 +440,7 @@ class GaitEngine:
     # -- solving --------------------------------------------------------------------------
 
     def _solve_ik(self, foot_targets: FootTargets) -> JointDict:
-        """Dispatch to the configured solver."""
-        if self.params.solver == "analytical" and not self._analytical_disabled:
-            if self._analytical is None:
-                from chromapi.kinematics.analytical_ik import AnalyticalIK
-
-                self._analytical, self._analytical_report = AnalyticalIK.from_kromatics(
-                    self.kinematics
-                )
-                if not self._analytical_report.ok():
-                    logger.warning(
-                        "GaitEngine: analytical-IK calibration residual exceeds tolerance - "
-                        "disabling it for this engine and using the QP instead.\n%s",
-                        self._analytical_report.summary(),
-                    )
-                    self._analytical = None
-                    self._analytical_disabled = True
-
-        if self._analytical is not None:
-            q, converged = self._analytical.inverse_kinematics(foot_targets)
-            if converged:
-                return q
-            missing = {leg: p for leg, p in foot_targets.items() if leg not in q}
-            logger.debug("GaitEngine: analytical solver missed %s - falling back to the QP.", sorted(missing))
-            qp_q, _ = self.kinematics.inverse_kinematics(
-                foot_targets, iterations=self.params.ik_iterations
-            )
-            qp_q.update(q)  # trust the analytical solution wherever it did converge
-            return qp_q
-
+        """Whole-body QP IK for the 4 feet."""
         q, _ = self.kinematics.inverse_kinematics(
             foot_targets, iterations=self.params.ik_iterations
         )
@@ -582,6 +541,7 @@ class GaitEngine:
 
 
 WALK_BLEND_S = 0.6
+BODY_HEIGHT_RATE_MPS = 0.03  # [m.s⁻¹] ramp of WalkMove.set_body_height: 1 cm in a third of a second
 _WALK_BLEND_SKIP_RAD = np.radians(2.0)
 
 class WalkMove(Move):
@@ -592,6 +552,11 @@ class WalkMove(Move):
         self.gait = GaitEngine(kinematics, params)
         self._blend_from: Optional[JointDict] = None
         self._blend_t = WALK_BLEND_S  # [s]
+        self.height_target = self.gait.params.body_height  # [m]
+
+    def set_body_height(self, body_height: float) -> None:
+        """Ramp the hip-to-foot height towards ``body_height`` [m], standing or walking (applied in the control loop)."""
+        self.height_target = body_height
 
     def on_start(self) -> None:
         """Ease into the gait from wherever the robot stands (see :data:`WALK_BLEND_S`)."""
@@ -610,6 +575,10 @@ class WalkMove(Move):
     def step(self, state: RobotState, command: MotorCommand, dt: float) -> None:
         """Advance the gait and write the resulting joint targets into ``command``."""
         del state  # unused - GaitEngine is pure dead reckoning
+        dh = self.height_target - self.gait.params.body_height  # [m]
+        if dh:
+            step = BODY_HEIGHT_RATE_MPS * dt  # [m]
+            self.gait.set_body_height(self.gait.params.body_height + float(np.clip(dh, -step, step)))
         if self._blend_t >= WALK_BLEND_S:
             command.target_angles.update(self.gait.step(dt))
             return
