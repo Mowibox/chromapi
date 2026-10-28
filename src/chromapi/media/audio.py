@@ -14,7 +14,7 @@ import threading
 import wave
 from math import gcd
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -272,14 +272,20 @@ class PersistentAudioOutput:
         if decoded is None:
             return False
         samples, sample_rate, n_channels = decoded
+        return self.write(samples, sample_rate, n_channels, label=str(path))
+
+    def write(self, samples: npt.NDArray[np.float32], sample_rate: int, n_channels: int = 1, label: str = "stream") -> bool:
+        """Queue raw float32 ``samples`` [-1, 1] at ``sample_rate`` [Hz]."""
+        if self._stream is None:
+            return False
         assert self.samplerate is not None
         if sample_rate != self.samplerate:
             try:
                 samples = _resample_to(samples, sample_rate, self.samplerate)
             except Exception:
                 logger.exception(
-                    "PersistentAudioOutput.play(%s): resampling %d Hz -> %d Hz failed - skipping",
-                    path,
+                    "PersistentAudioOutput.write(%s): resampling %d Hz -> %d Hz failed - skipping",
+                    label,
                     sample_rate,
                     self.samplerate,
                 )
@@ -450,3 +456,86 @@ class PushToTalkRecorder:
     def is_recording(self) -> bool:
         """Whether a recording is currently in progress."""
         return self._stream is not None
+
+
+def to_int16_mono(frames: npt.NDArray[np.float32], gain: float = 1.0) -> bytes:
+    """``(n, channels)`` float32 frames -> little-endian int16 mono bytes, channels summed, ``gain`` applied, clipped.
+
+    Summed rather than averaged: the robot's mono microphone comes on one of two channels, the other stays silent.
+    """
+    mono = np.asarray(frames, dtype=np.float32).reshape(len(frames), -1).sum(axis=1) * gain
+    return bytes((np.clip(mono, -1.0, 1.0) * 32767.0).astype("<i2").tobytes())
+
+
+AGC_TARGET_RMS = 0.1
+AGC_MAX_GAIN = 8.0
+AGC_RISE = 0.05  # fraction of the way up per chunk: ~1 s to reach a quiet voice with 40 ms chunks
+
+
+class AutoGain:
+    """Per-chunk automatic gain: :meth:`apply` returns the chunk scaled towards :data:`AGC_TARGET_RMS`."""
+
+    def __init__(self, max_gain: float = AGC_MAX_GAIN) -> None:
+        """Start at unit gain."""
+        self.max_gain = max_gain
+        self.gain = 1.0
+
+    def apply(self, mono: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        """``mono`` [-1, 1] scaled by the current gain, updated from this chunk's level."""
+        rms = float(np.sqrt(np.mean(np.square(mono)))) if len(mono) else 0.0
+        wanted = min(self.max_gain, max(1.0, AGC_TARGET_RMS / max(rms, 1e-9)))
+        self.gain = wanted if wanted < self.gain else self.gain + AGC_RISE * (wanted - self.gain)
+        return np.asarray(mono * self.gain, dtype=np.float32)
+
+
+class MicStream:
+    """The live microphone stream class.
+
+    ``gain`` is fixed (the robot's ICS-43434 is nearly silent at unit gain), an :class:`AutoGain` comes on top.
+    """
+
+    def __init__(
+        self, on_chunk: Callable[[bytes], None], samplerate: int = 16000, block_s: float = 0.04,
+        gain: float = 1.0, device: Union[int, str, None] = None,
+    ) -> None:
+        """``samplerate`` [Hz], chunks of ``block_s`` [s]; opens nothing until :meth:`start`."""
+        self.on_chunk, self.samplerate, self.block_s, self.gain, self.device = on_chunk, samplerate, block_s, gain, device
+        self.auto_gain = AutoGain()
+        self._stream: Optional[Any] = None
+
+    def start(self) -> bool:
+        """Open the input (2 channels if the device has them, else 1) and start sending chunks."""
+        try:
+            import sounddevice as sd
+        except ImportError:
+            logger.warning("MicStream.start(): 'sounddevice' not installed - skipping")
+            return False
+
+        def _callback(indata: npt.NDArray[np.float32], frames: int, time_info: object, status: object) -> None:
+            try:
+                mono = np.asarray(indata, dtype=np.float32).reshape(frames, -1).sum(axis=1) * self.gain
+                self.on_chunk(to_int16_mono(self.auto_gain.apply(mono)[:, None]))
+            except Exception:  # never let an exception reach PortAudio's thread
+                logger.exception("MicStream: chunk dropped")
+
+        for channels in (2, 1):
+            try:
+                self._stream = sd.InputStream(samplerate=self.samplerate, channels=channels, dtype="float32",
+                                              device=self.device, blocksize=round(self.samplerate * self.block_s),
+                                              callback=_callback)
+                self._stream.start()
+                return True
+            except Exception:
+                self._stream = None
+        logger.warning("MicStream.start(): could not open the microphone")
+        return False
+
+    def stop(self) -> None:
+        """Close the input."""
+        if self._stream is not None:
+            try:
+                self._stream.stop()
+                self._stream.close()
+            except Exception:
+                logger.exception("MicStream.stop(): error closing the input stream")
+            self._stream = None

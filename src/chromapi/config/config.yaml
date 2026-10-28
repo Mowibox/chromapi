@@ -105,6 +105,7 @@ battery:
 audio:
   speaker: ""
   volume: 0.25
+  mic_gain: 30.0
 
 control:
   loop_hz: 100.0
