@@ -67,9 +67,13 @@ chromapi calibrate servos --all   # find each servo's center from its mechanical
 chromapi calibrate imu            # measure the IMU board tilt, robot still on a level floor
 chromapi health                   # what is wrong with the robot, and what to do about it
 chromapi version                  # SDK, firmware and bridge protocol versions
+chromapi flash                    # update the motherboard firmware (lay the robot down first)
+chromapi report                   # support report to attach to a message on Discord
 ```
 
 `chromapi --help` lists every command (`python -m chromapi` works too).
+
+`chromapi run` starts the robot and its web app, at `https://<robot-ip>:5000` from a phone or a PC on the same network.
 
 The same code then runs on the robot with `Chromapi(backend="hardware")`, which talks to the motherboard over UART communication.
 
@@ -127,7 +131,7 @@ This repository is multi-licensed:
 
 | Part | Path | License |
 | :--- | :--- | :--- |
-| Software (Python SDK, tools, tests, scripts, Raspberry Pi setup) | [`/src`](./src/), [`/tests`](./tests/), [`/scripts`](./scripts/), [`/deploy`](./deploy/) | [Apache 2.0](./LICENSE) |
+| Software (Python SDK, tools, tests, Raspberry Pi setup) | [`/src`](./src/), [`/tests`](./tests/), [`/deploy`](./deploy/) | [Apache 2.0](./LICENSE) |
 | Robot description (URDF, MJCF, configuration files) | [`/src/chromapi/model`](./src/chromapi/model/) | [Apache 2.0](./LICENSE) |
 | 3D meshes (`.stl`, `.part`) | [`/src/chromapi/model/*/assets`](./src/chromapi/model/) | [CC BY-NC-SA 4.0](./src/chromapi/model/LICENSE) |
 | Documentation and media (README, images, GIFs) | [`/assets`](./assets/), this README | [CC BY-NC-SA 4.0](./src/chromapi/model/LICENSE) |

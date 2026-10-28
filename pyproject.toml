@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chromapi"
-version = "0.1.0"
+version = "1.0.0"
 authors = [{ name = "Mowibox", email = "ousmane.thiongane@outlook.com" }]
 description = "High-level software for the Chromapi 12-DOF quadruped robot"
 readme = "README.md"
