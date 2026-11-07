@@ -154,7 +154,7 @@ def check_robot(bridge: Any, config: Dict[str, Any]) -> List[Result]:
     if norm == 0.0:
         results.append((FAIL, "IMU", "accelerometer reads zeros: SPI link to the BMI088 dead?"))
     elif abs(norm - 9.81) > GRAVITY_TOLERANCE:
-        results.append((WARN, "IMU", f"gravity reads {norm:.2f} m/s²: keep the robot still and run again"))
+        results.append((WARN, "IMU", f"gravity reads {norm:.2f} m/s²: keep Chromapi still and run again"))
     else:
         results.append((OK, "IMU", f"gravity {norm:.2f} m/s²"))
 

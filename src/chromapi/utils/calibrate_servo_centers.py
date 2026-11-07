@@ -358,9 +358,9 @@ def main() -> None:
     print(f"Joints to calibrate: {targets}")
     print(
         "\n/!\\ Each joint sweeps across its ENTIRE range of motion, and the other legs move\n"
-        "    out of its way first. Lift the robot so no leg can touch the ground.\n"
+        "    out of its way first. Lift Chromapi so no leg can touch the ground.\n"
     )
-    if not args.yes and not _prompt_yes_no("Robot is clear and safe to move?"):
+    if not args.yes and not _prompt_yes_no("Chromapi is clear and safe to move?"):
         print("Aborted.")
         return
 

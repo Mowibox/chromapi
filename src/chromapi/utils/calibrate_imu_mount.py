@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """IMU Mount Calibration Tool.
 
-Put the robot on a flat floor (rest pose or standing, chassis level) and don't touch it.
+Put Chromapi on a flat floor (rest pose or standing, chassis level) and don't touch it.
 
 Usage::
 
@@ -57,7 +57,7 @@ def main() -> None:
     if not bridge.connect():
         sys.exit("[!] Cannot open the UART bridge.")
     try:
-        print(f"[*] Recording {args.duration:.0f} s - keep the robot still on a level floor...")
+        print(f"[*] Recording {args.duration:.0f} s - keep Chromapi still on a level floor...")
         quats = _record(bridge, args.duration)
     except RuntimeError as exc:
         sys.exit(f"[!] {exc}")

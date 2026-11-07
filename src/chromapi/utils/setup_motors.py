@@ -5,15 +5,17 @@ Usage::
 
     chromapi motors setup          # new servos: give each its ID, one servo on the bus at a time
     chromapi motors setup --all    # assembled robot: rewrite the registers of all 12, IDs unchanged
+    chromapi motors setup --id N   # the new servo (ID 1) becomes N, no prompt
 """
 
 import argparse
 import time
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from chromapi.chromapi import load_config
 from chromapi.hardware.motherboard_bridge import BridgeClient
 
+FACTORY_ID = 1
 # Feetech STS3215 Register Map
 REG_ID = 5
 REG_MAX_VOLT = 14
@@ -95,16 +97,49 @@ def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> Dict[s
     print(" Max Accel only applies after a servo power cycle.")
     return wrong
 
+def setup_one(bridge: BridgeClient, new_id: int, ids: List[int]) -> int:
+    """Assembly step: the new servo (ID 1) becomes ``new_id``; steps go from the highest ID down, one servo at a time."""
+    if new_id not in ids:
+        print(f"[!] ID {new_id} is not one of the robot's servos {ids} (config servos.id_map).")
+        return 1
+    missing = [i for i in ids if i > new_id and not bridge.ping_servo(i)]
+    if missing:
+        print(f"[!] Servos set up before not answering: {missing}. Check the chain, or set them up again.")
+        return 1
+    if new_id != FACTORY_ID and bridge.ping_servo(new_id):
+        print(f"[*] A servo already answers at ID {new_id}: rewriting its registers.")
+        target = new_id
+    elif bridge.ping_servo(FACTORY_ID):
+        target = FACTORY_ID
+    else:
+        print(f"[!] No servo answers at the factory ID {FACTORY_ID}: plug in the new servo.")
+        return 1
+    wrong = configure_servo(bridge, target, new_id)
+    if wrong:
+        print(f"[!] Read back different from what was written (lost frame?): {wrong}. Run again.")
+        return 1
+    print(f"[SUCCESS] Servo {new_id} set up" + (": power-cycle the robot so that Max Accel applies."
+                                                if new_id == min(ids) else "."))
+    return 0
+
+
 def main() -> int:
     """Run the interactive prompt for servo provisioning, or reconfigure every servo with ``--all``."""
     parser = argparse.ArgumentParser(description="Set each servo's ID and registers.")
     parser.add_argument("--all", action="store_true",
                         help="rewrite the registers of every servo of the robot, keeping their IDs")
+    parser.add_argument("--id", type=int, help="assembly step without a prompt: the new servo at ID 1 gets this ID")
     args = parser.parse_args()
 
     bridge = BridgeClient()
     if not bridge.connect():
         return 1
+
+    if args.id is not None:
+        try:
+            return setup_one(bridge, args.id, sorted(load_config()["servos"]["id_map"].values()))
+        finally:
+            bridge.close()
 
     if args.all:
         try:
