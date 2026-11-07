@@ -13,6 +13,7 @@ Usage::
     ring.play_mood("happy")       # sound + animation
 """
 
+import colorsys
 import logging
 import math
 import random
@@ -32,15 +33,67 @@ Color = Tuple[int, int, int]
 RenderFn = Callable[[Any, float], None]  # (robot, t [s]) -> sets the ring
 
 BRIGHTNESS = 0.35  # global scale: full brightness is blinding and draws ~1 A from the 5 V rail
-IDLE = (182, 5, 252)  # violet-pink, the robot's default idle colour
+IDLE = (182, 5, 252)  # violet-pink, Chromapi's default idle colour
+_idle: Color = IDLE
+_rainbow = False
+RAINBOW_IDLE_S = 4.0  # [s] per turn
 TORCH_LEVEL = 200  # white colour for the torch
 FPS = 20.0  # [Hz] the animations stay smooth; each frame costs the shared serial bus
 TOP_HALF = {14, 15, 16, 17, 0, 1, 2, 3, 4}  # LED 0 is at the top of the ring
+RING_CLOCKWISE = True  # LED indices clockwise, seen from the front
 BOTTOM_HALF = {5, 6, 7, 8, 9, 10, 11, 12, 13}
 
 
 def _dim(r: float, g: float, b: float) -> Color:
     return (int(r * BRIGHTNESS), int(g * BRIGHTNESS), int(b * BRIGHTNESS))
+
+
+def dimmed(color: Color) -> Color:
+    """``color`` at the ring's brightness."""
+    return _dim(*color)
+
+
+def idle_color() -> Color:
+    """The idle colour."""
+    return _rainbow_rgb(2 * math.pi * time.monotonic() / RAINBOW_IDLE_S) if _rainbow else _idle
+
+
+def _rainbow_rgb(a: float) -> Color:
+    """Rainbow colour at angle ``a`` [rad]."""
+    return tuple(int(127.5 * (1 + math.sin(a + phase))) for phase in (0.0, 2.094, 4.188))  # type: ignore[return-value]
+
+
+def _idle_leds(t: float) -> List[Color]:
+    """The idle colour of each LED at ``t`` [s]."""
+    if _rainbow:
+        return [_rainbow_rgb(2 * math.pi * (t / RAINBOW_IDLE_S + i / LED_RING_COUNT)) for i in range(LED_RING_COUNT)]
+    return [_idle] * LED_RING_COUNT
+
+
+def idle_rainbow() -> bool:
+    """The idle colour is the rainbow."""
+    return _rainbow
+
+
+def set_idle_color(color: Optional[Color] = None) -> None:
+    """Set :func:`idle_color` (None: :data:`IDLE`), ending the rainbow."""
+    global _idle, _rainbow
+    _idle = IDLE if color is None else tuple(int(min(max(c, 0), 255)) for c in color)  # type: ignore[assignment]
+    _rainbow = False
+
+
+def set_idle_rainbow() -> None:
+    """Make the idle colour a slowly turning rainbow."""
+    global _rainbow
+    _rainbow = True
+
+
+def accent_color(color: Color) -> Color:
+    """A pale neighbour of ``color``, 50 degrees round the hue wheel, on the brighter side."""
+    h, _, _ = colorsys.rgb_to_hsv(*(c / 255.0 for c in color))
+    candidates = [colorsys.hsv_to_rgb((h + shift) % 1.0, 0.6, 1.0) for shift in (50 / 360, -50 / 360)]
+    best = max(candidates, key=lambda rgb: 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2])
+    return tuple(int(round(c * 255)) for c in best)  # type: ignore[return-value]
 
 
 def _from_top(i: int) -> int:
@@ -53,18 +106,17 @@ def render_off(robot: Any, t: float) -> None:
     robot.set_led_all(0, 0, 0)
 
 
-LISTENING_MAGENTA = (255, 0, 200)
 LISTENING_LEDS_PER_S = 18.0  # [LED/s] one turn a second
 
 
 def render_listening(robot: Any, t: float) -> None:
-    """Someone listens through the robot's microphone: a bright magenta comet turns over the dimmed idle colour."""
+    """Someone listens through the microphone: an accent comet over the dimmed idle colour."""
     head = int(t * LISTENING_LEDS_PER_S) % LED_RING_COUNT
     colors = []
-    for i in range(LED_RING_COUNT):
+    for i, base in enumerate(_idle_leds(t)):
         d = (head - i) % LED_RING_COUNT
         k = 1.0 - d / 4 * 0.75 if d < 4 else 0.0  # head and a 3-LED tail
-        colors.append(_dim(*(m * k + c * 0.3 * (1.0 - k) for m, c in zip(LISTENING_MAGENTA, IDLE))))
+        colors.append(_dim(*(m * k + c * 0.3 * (1.0 - k) for m, c in zip(accent_color(base), base))))
     robot.set_led_bulk(colors)
 
 
@@ -74,18 +126,17 @@ def render_torch(robot: Any, t: float) -> None:
 
 
 def render_idle(robot: Any, t: float) -> None:
-    """Slow breathing in the idle colour."""
+    """Slow breathing in the idle colour, or the spinning rainbow."""
+    if _rainbow:
+        robot.set_led_bulk([_dim(*c) for c in _idle_leds(t)])
+        return
     k = 0.3 + 0.7 * (math.sin(t * math.pi) + 1.0) / 2.0
-    robot.set_led_all(*_dim(IDLE[0] * k, IDLE[1] * k, IDLE[2] * k))
+    robot.set_led_all(*_dim(*(c * k for c in _idle)))
 
 
 def render_rainbow(robot: Any, t: float) -> None:
     """Spinning rainbow."""
-    colors = []
-    for i in range(LED_RING_COUNT):
-        a = t * 6.0 + 2 * math.pi * i / LED_RING_COUNT
-        colors.append(_dim(*(127.5 * (1 + math.sin(a + phase)) for phase in (0.0, 2.094, 4.188))))
-    robot.set_led_bulk(colors)
+    robot.set_led_bulk([_dim(*_rainbow_rgb(t * 6.0 + 2 * math.pi * i / LED_RING_COUNT)) for i in range(LED_RING_COUNT)])
 
 
 def render_sad(robot: Any, t: float) -> None:
@@ -144,21 +195,35 @@ def render_scared(robot: Any, t: float) -> None:
     robot.set_led_bulk([_dim(200, 230, 255) if (i % 2 == 0) == even_on else (0, 0, 0) for i in range(LED_RING_COUNT)])
 
 
+THINKING_CYCLE_S = 2.2  # [s] per lap
+THINKING_DOTS = 4
+THINKING_GAP_S = 0.4  # [s] between dots
+THINKING_EASE = 0.55  # 0: even speed, 1: stops at the top
+
+
 def render_thinking(robot: Any, t: float) -> None:
-    """Blue to indigo, every other LED, turning."""
-    colors = []
-    for i in range(LED_RING_COUNT):
-        on = 0.5 + 0.5 * math.cos(i * math.pi + t * 4.5)
-        mix = 0.5 + 0.5 * math.sin(i * 0.35 + t * 0.5)
-        colors.append(_dim(75 * mix * on, 0, (255 * (1 - mix) + 130 * mix) * on))
-    robot.set_led_bulk(colors)
+    """A loading spinner: blue to indigo dots chasing round the ring, slower at the top."""
+    lit = [0.0] * LED_RING_COUNT
+    colors = [(0.0, 0.0, 0.0)] * LED_RING_COUNT
+    for j in range(THINKING_DOTS):
+        s = ((t - j * THINKING_GAP_S) / THINKING_CYCLE_S) % 1.0
+        lap = s - THINKING_EASE * math.sin(2 * math.pi * s) / (2 * math.pi)
+        pos = lap * LED_RING_COUNT
+        mix = j / (THINKING_DOTS - 1)
+        rgb = (75 * mix, 0.0, 255 * (1 - mix) + 130 * mix)
+        for i in range(LED_RING_COUNT):
+            d = abs((pos - i + LED_RING_COUNT / 2) % LED_RING_COUNT - LED_RING_COUNT / 2)
+            k = max(0.0, 1.0 - d)  # glide between two LEDs
+            if k > lit[i]:
+                lit[i], colors[i] = k, (rgb[0] * k, rgb[1] * k, rgb[2] * k)
+    robot.set_led_bulk([_dim(*c) for c in colors])
 
 
 def render_purring(robot: Any, t: float) -> None:
     """Top half in the idle colour, with a fast purr."""
     k = 0.85 + 0.15 * math.sin(t * 14.0 * math.pi)
-    on = _dim(IDLE[0] * k, IDLE[1] * k, IDLE[2] * k)
-    robot.set_led_bulk([on if i in TOP_HALF else (0, 0, 0) for i in range(LED_RING_COUNT)])
+    robot.set_led_bulk([_dim(*(c * k for c in base)) if i in TOP_HALF else (0, 0, 0)
+                        for i, base in enumerate(_idle_leds(t))])
 
 
 def render_excited(robot: Any, t: float) -> None:
@@ -167,21 +232,32 @@ def render_excited(robot: Any, t: float) -> None:
     robot.set_led_all(*_dim(255 * k, 255 * k, 0))
 
 
-def render_curious(robot: Any, t: float) -> None:
-    """A cyan dot sweeping around the top."""
-    center = 4.0 * math.sin(t * 4.5)
-    colors = []
-    for i in range(LED_RING_COUNT):
-        signed = i if i <= LED_RING_COUNT / 2 else i - LED_RING_COUNT
-        k = max(0.0, 1.0 - abs(signed - center) / 2.5)
-        colors.append(_dim(0, 255 * k, 255 * k))
+QUESTION_HOOK = range(-3, 7)  # LED steps clockwise from the top
+QUESTION_DOT = 9
+QUESTION_WRITE_S = 0.7  # [s]
+
+
+def _led_at(step: int) -> int:
+    """The LED ``step`` places clockwise from the top (LED 0)."""
+    return (step if RING_CLOCKWISE else -step) % LED_RING_COUNT
+
+
+def render_confused(robot: Any, t: float) -> None:
+    """A cyan question mark, written then glowing."""
+    glow = 0.75 + 0.25 * math.cos(max(t - QUESTION_WRITE_S - 0.2, 0.0) * 2.0 * math.pi)
+    colors = [(0, 0, 0)] * LED_RING_COUNT
+    for n, step in enumerate(QUESTION_HOOK):
+        k = min(max(t / QUESTION_WRITE_S * len(QUESTION_HOOK) - n, 0.0), 1.0)
+        colors[_led_at(step)] = _dim(0, 255 * k * glow, 255 * k * glow)
+    if t >= QUESTION_WRITE_S + 0.2:
+        colors[_led_at(QUESTION_DOT)] = _dim(0, 255 * glow, 255 * glow)
     robot.set_led_bulk(colors)
 
 
 def render_squeak(robot: Any, t: float) -> None:
-    """Idle colour to hot pink, 4 beats per squeak."""
+    """Idle colour to its accent, 4 beats per squeak."""
     mix = 0.5 + 0.5 * math.sin((t % 0.342) / 0.342 * 4 * 2 * math.pi)
-    robot.set_led_all(*_dim(*(a + (b - a) * mix for a, b in zip(IDLE, (255, 105, 180)))))
+    robot.set_led_bulk([_dim(*(a + (b - a) * mix for a, b in zip(base, accent_color(base)))) for base in _idle_leds(t)])
 
 
 def render_joy(robot: Any, t: float) -> None:
@@ -249,6 +325,8 @@ class Mood:
     render: RenderFn
     sound: str  # file in AUDIO_DIR
     emoji: str  # for the web app
+    min_s: float = 0.0  # [s] minimum animation length
+    gain: float = 1.0  # sound volume factor, for a sound quieter on the small speaker than the others
 
 
 MOODS: List[Mood] = [
@@ -258,19 +336,26 @@ MOODS: List[Mood] = [
     Mood("angry", render_angry, "upset.wav", "😠"),
     Mood("surprised", render_surprised, "surprised.wav", "😮"),
     Mood("joy", render_joy, "greeting.wav", "🥰"),
-    Mood("dizzy", render_dizzy, "confused.wav", "😵"),
+    Mood("dizzy", render_dizzy, "dizzy.wav", "😵"),
     Mood("tired", render_tired, "sleepy.wav", "😴"),
     Mood("yes", render_yes, "yes.wav", "👍"),
     Mood("no", render_no, "no.wav", "👎"),
     Mood("alert", render_alert, "alert.wav", "🚨"),
     Mood("scared", render_scared, "scared.wav", "😨"),
-    Mood("thinking", render_thinking, "thinking.wav", "🤔"),
-    Mood("purring", render_purring, "purring.wav", "😺"),
+    Mood("thinking", render_thinking, "thinking.wav", "🤔", min_s=2 * THINKING_CYCLE_S + 0.4),
+    Mood("purring", render_purring, "purring.wav", "😺", gain=3.5),
     Mood("excited", render_excited, "excited.wav", "🤩"),
-    Mood("curious", render_curious, "curious.wav", "🧐"),
+    Mood("confused", render_confused, "confused.wav", "❓", min_s=2.0),
     Mood("squeak", render_squeak, "squeak.wav", "🐭"),
 ]
 MOODS_BY_NAME: Dict[str, Mood] = {mood.name: mood for mood in MOODS}
+PAD_MOOD_COLORS: Dict[str, Color] = {
+    "scream": (255, 0, 80), "happy": (255, 210, 0), "sad": (0, 100, 255), "angry": (255, 140, 0),
+    "surprised": (255, 255, 255), "joy": (220, 0, 220), "dizzy": (255, 255, 0), "tired": (255, 120, 0),
+    "yes": (0, 255, 0), "no": (255, 0, 0), "alert": (255, 51, 0), "scared": (200, 230, 255),
+    "thinking": (75, 0, 130), "purring": (255, 105, 180), "excited": (255, 255, 0), "confused": (0, 229, 255),
+    "squeak": (180, 180, 180),
+}
 MIN_FLASH_S = 1.2  # [s] a short sound still gets a visible animation
 
 
@@ -309,7 +394,7 @@ class LedRing:
         self.robot = robot
         self._out = _OnChange(robot)
         self.torch = False
-        self.listening = False  # the robot's microphone is streamed to a page: shown, whatever else plays
+        self.listening = False  # Chromapi's microphone is streamed to a page: shown, whatever else plays
         self._persistent: RenderFn = render_off
         self._flash: Optional[Tuple[RenderFn, float]] = None  # (animation, until [s])
         self._stop = threading.Event()
@@ -340,8 +425,8 @@ class LedRing:
         """A mood's sound and its animation, for as long as the sound, or ``duration_s`` [s] (a gesture) if longer."""
         mood = MOODS_BY_NAME[name]
         path = AUDIO_DIR / mood.sound
-        self.flash(mood.render, max(MIN_FLASH_S, sound_duration_s(path), duration_s))
-        self.robot.play_sound(path)
+        self.flash(mood.render, max(MIN_FLASH_S, mood.min_s, sound_duration_s(path), duration_s))
+        self.robot.play_sound(path, gain=mood.gain)
 
     def _loop(self) -> None:
         t0 = time.monotonic()
@@ -357,3 +442,20 @@ class LedRing:
             except Exception:  # a lost frame on the bus: the next one will do
                 logger.debug("LED frame failed", exc_info=True)
             self._stop.wait(1.0 / FPS)
+
+
+#: The ring after a crash (``chromapi led error``).
+ERROR_RGB: Color = (255, 0, 0)
+
+
+def error_main() -> int:
+    """Light the ring in :data:`ERROR_RGB`."""
+    from chromapi.hardware.motherboard_bridge import BridgeClient
+
+    bridge = BridgeClient()
+    if not bridge.connect():
+        return 1
+    try:
+        return 0 if bridge.set_led_color_all(*_dim(*ERROR_RGB)) else 1
+    finally:
+        bridge.close()

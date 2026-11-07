@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Audio playback and recording for Chromapi.
+"""Audio playback and microphone streaming for Chromapi.
 
 Optional dependency (``pip install chromapi[audio]``, i.e. ``sounddevice``) - every function
 here is best-effort: a missing dependency, no audio device (headless CI, SSH without audio
 forwarding, ...), or a bad file all log a warning and return ``False``/``None``, never raise. A
-sound cue (or a failed recording) is not something that should ever take down a control loop.
+sound cue is not something that should ever take down a control loop.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import threading
 import wave
 from math import gcd
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -141,29 +141,6 @@ def play_wav(
         logger.exception("play_wav(%s): playback failed - no audio device available?", path)
         return False
     return True
-
-
-def find_input_device(name_hint: str) -> Optional[int]:
-    """Return the index of the first input-capable device whose name contains ``name_hint``."""
-    try:
-        import sounddevice as sd
-    except ImportError:
-        return None
-    try:
-        devices = sd.query_devices()
-    except Exception:
-        logger.exception("find_input_device(%r): could not query audio devices", name_hint)
-        return None
-
-    hint = name_hint.lower()
-    for index, device in enumerate(devices):
-        if device.get("max_input_channels", 0) > 0 and hint in str(device.get("name", "")).lower():
-            return index
-    logger.warning(
-        "find_input_device(%r): no input device matched - falling back to the system default",
-        name_hint,
-    )
-    return None
 
 
 def find_output_device(name_hint: str) -> Optional[int]:
@@ -310,165 +287,17 @@ class PersistentAudioOutput:
             self._pending = np.zeros((0, self.channels), dtype=np.float32)
 
 
-def _write_pcm16_wav(path: Union[str, Path], samples: npt.NDArray[np.float32], samplerate: int, channels: int) -> None:
-    """Write a float32 [-1, 1] array (shape ``(n,)`` or ``(n, channels)``) as 16-bit PCM."""
-    pcm = (np.clip(samples, -1.0, 1.0) * 32767.0).astype(np.int16)
-    with wave.open(str(path), "wb") as wav_file:
-        wav_file.setnchannels(channels)
-        wav_file.setsampwidth(2)
-        wav_file.setframerate(samplerate)
-        wav_file.writeframes(pcm.tobytes())
-
-
-def record_wav(
-    path: Union[str, Path],
-    duration_s: float,
-    samplerate: int = 44100,
-    channels: int = 1,
-    device: Union[int, str, None] = None,
-    gain: float = 1.0,
-) -> bool:
-    """Record a fixed ``duration_s`` from an input device straight to a .wav file.
-
-    Args:
-        path: Output .wav path (overwritten if it exists).
-        duration_s: How long to record [s].
-        samplerate: Sample rate [Hz].
-        channels: Number of input channels to capture.
-        device: Passed straight to ``sounddevice`` (index, name substring, or ``None`` for the system default input).
-        gain: Linear gain applied to the recorded samples before writing to disk.
-
-    Returns:
-        True if a file was written, False if recording was skipped/failed.
-
-    """
-    try:
-        import sounddevice as sd
-    except ImportError:
-        logger.warning(
-            "record_wav(%s): 'sounddevice' not installed (pip install chromapi[audio]) - "
-            "skipping recording",
-            path,
-        )
-        return False
-
-    try:
-        raw = sd.rec(
-            int(duration_s * samplerate),
-            samplerate=samplerate,
-            channels=channels,
-            dtype="float32",
-            device=device,
-        )
-        sd.wait()
-    except Exception:
-        logger.exception("record_wav(%s): recording failed - no input device available?", path)
-        return False
-
-    try:
-        _write_pcm16_wav(path, raw * gain, samplerate, channels)
-    except OSError:
-        logger.exception("record_wav(%s): could not write the file", path)
-        return False
-    return True
-
-
-class PushToTalkRecorder:
-    """Variable-length recording: :meth:`start` on button-down, :meth:`stop` on button-up."""
-
-    def __init__(
-        self, samplerate: int = 44100, channels: int = 1, device: Union[int, str, None] = None, gain: float = 1.0
-    ) -> None:
-        """Configure the recorder (``samplerate`` [Hz]) - opens no device until :meth:`start`."""
-        self.samplerate = samplerate  # [Hz]
-        self.channels = channels
-        self.device = device
-        self.gain = gain
-        self._stream: Optional[Any] = None
-        self._chunks: List[npt.NDArray[np.float32]] = []
-        self._lock = threading.Lock()
-
-    def start(self) -> bool:
-        """Open the input stream and begin buffering."""
-        if self._stream is not None:
-            return False
-        try:
-            import sounddevice as sd
-        except ImportError:
-            logger.warning("PushToTalkRecorder.start(): 'sounddevice' not installed - skipping")
-            return False
-
-        self._chunks = []
-
-        def _callback(indata: npt.NDArray[np.float32], frames: int, time_info: object, status: object) -> None:
-            """PortAudio calls this from its own real-time thread whenever it has ``frames`` more samples."""
-            if status:
-                logger.warning("PushToTalkRecorder: %s", status)
-            with self._lock:
-                self._chunks.append(indata.copy())
-
-        try:
-            self._stream = sd.InputStream(
-                samplerate=self.samplerate,
-                channels=self.channels,
-                dtype="float32",
-                device=self.device,
-                callback=_callback,
-            )
-            self._stream.start()
-        except Exception:
-            logger.exception("PushToTalkRecorder.start(): could not open the input device")
-            self._stream = None
-            return False
-        return True
-
-    def stop(self) -> Optional[npt.NDArray[np.float32]]:
-        """Stop recording and return the captured samples."""
-        if self._stream is None:
-            return None
-        try:
-            self._stream.stop()
-            self._stream.close()
-        except Exception:
-            logger.exception("PushToTalkRecorder.stop(): error closing the input stream")
-        self._stream = None
-
-        with self._lock:
-            chunks, self._chunks = self._chunks, []
-        if not chunks:
-            return None
-        return np.concatenate(chunks, axis=0) * self.gain
-
-    def stop_to_wav(self, path: Union[str, Path]) -> bool:
-        """Stop recording and write the result straight to ``path``."""
-        samples = self.stop()
-        if samples is None or len(samples) == 0:
-            logger.warning("PushToTalkRecorder.stop_to_wav(%s): nothing was recorded", path)
-            return False
-        try:
-            _write_pcm16_wav(path, samples, self.samplerate, self.channels)
-        except OSError:
-            logger.exception("PushToTalkRecorder.stop_to_wav(%s): could not write the file", path)
-            return False
-        return True
-
-    @property
-    def is_recording(self) -> bool:
-        """Whether a recording is currently in progress."""
-        return self._stream is not None
-
-
 def to_int16_mono(frames: npt.NDArray[np.float32], gain: float = 1.0) -> bytes:
     """``(n, channels)`` float32 frames -> little-endian int16 mono bytes, channels summed, ``gain`` applied, clipped.
 
-    Summed rather than averaged: the robot's mono microphone comes on one of two channels, the other stays silent.
+    Summed rather than averaged: Chromapi's mono microphone comes on one of two channels, the other stays silent.
     """
     mono = np.asarray(frames, dtype=np.float32).reshape(len(frames), -1).sum(axis=1) * gain
     return bytes((np.clip(mono, -1.0, 1.0) * 32767.0).astype("<i2").tobytes())
 
 
-AGC_TARGET_RMS = 0.1
-AGC_MAX_GAIN = 8.0
+AGC_TARGET_RMS = 0.2  # -14 dBFS
+AGC_MAX_GAIN = 16.0
 AGC_RISE = 0.05  # fraction of the way up per chunk: ~1 s to reach a quiet voice with 40 ms chunks
 
 
@@ -488,18 +317,70 @@ class AutoGain:
         return np.asarray(mono * self.gain, dtype=np.float32)
 
 
-class MicStream:
-    """The live microphone stream class.
+NS_FRAME = 512  # [samples] half-overlapped
+NS_BAND_HZ = (150.0, 4000.0)  # [Hz] voice band kept
+NS_OVER = 1.2  # over-subtraction
+NS_FLOOR = 0.1  # -20 dB of noise left
+NS_NOISE_RISE_DB_S = 3.0  # [dB/s] noise estimate rise, slow so a voice is not learnt
+NS_NOISE_FALL = 0.2  # per frame
 
-    ``gain`` is fixed (the robot's ICS-43434 is nearly silent at unit gain), an :class:`AutoGain` comes on top.
+
+class NoiseSuppressor:
+    """Streaming spectral subtraction of steady noise (fan, servos); delays the sound by one frame.
+
+    ponytail: stationary noise only; RNNoise if that is not enough.
     """
+
+    def __init__(self, samplerate: int = 16000) -> None:
+        """Nothing learnt yet: the first frames set the noise estimate."""
+        n = NS_FRAME
+        self.hop = n // 2
+        self.window = np.sqrt(np.hanning(n + 1)[:n]).astype(np.float32)  # sqrt-Hann
+        freqs = np.fft.rfftfreq(n, 1.0 / samplerate)
+        self.band = ((freqs >= NS_BAND_HZ[0]) & (freqs <= NS_BAND_HZ[1])).astype(np.float32)
+        self.frame = np.zeros(n, dtype=np.float32)
+        self.acc = np.zeros(n, dtype=np.float32)  # overlap-add
+        self.pending = np.zeros(0, dtype=np.float32)
+        self.out = np.zeros(self.hop, dtype=np.float32)
+        self.power: Optional[npt.NDArray[np.float64]] = None
+        self.noise: Optional[npt.NDArray[np.float64]] = None
+        self.gain = np.ones(n // 2 + 1)
+        self.rise = 10.0 ** (NS_NOISE_RISE_DB_S / 10.0 * self.hop / samplerate)
+
+    def apply(self, mono: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+        """``mono`` denoised, same length, delayed."""
+        self.pending = np.concatenate([self.pending, np.asarray(mono, dtype=np.float32)])
+        done = []
+        while len(self.pending) >= self.hop:
+            self.frame = np.concatenate([self.frame[self.hop:], self.pending[:self.hop]])
+            self.pending = self.pending[self.hop:]
+            spec = np.fft.rfft(self.frame * self.window)
+            p = np.abs(spec) ** 2
+            self.power = p if self.power is None else 0.5 * self.power + 0.5 * p
+            if self.noise is None:
+                self.noise = self.power.copy()
+            self.noise = np.where(self.power < self.noise, self.noise + NS_NOISE_FALL * (self.power - self.noise),
+                                  np.minimum(self.power, self.noise * self.rise))
+            g = np.maximum(NS_FLOOR, 1.0 - NS_OVER * self.noise / np.maximum(p, 1e-12))
+            self.gain = np.maximum(g, 0.5 * (self.gain + g))
+            self.acc += np.fft.irfft(spec * self.gain * self.band, NS_FRAME).astype(np.float32) * self.window
+            done.append(self.acc[:self.hop].copy())
+            self.acc = np.concatenate([self.acc[self.hop:], np.zeros(self.hop, dtype=np.float32)])
+        self.out = np.concatenate([self.out, *done])
+        y, self.out = self.out[:len(mono)], self.out[len(mono):]
+        return y
+
+
+class MicStream:
+    """Live microphone stream: fixed ``gain``, :class:`NoiseSuppressor`, :class:`AutoGain`, tanh limiter."""
 
     def __init__(
         self, on_chunk: Callable[[bytes], None], samplerate: int = 16000, block_s: float = 0.04,
-        gain: float = 1.0, device: Union[int, str, None] = None,
+        gain: float = 1.0, device: Union[int, str, None] = None, denoise: bool = True,
     ) -> None:
         """``samplerate`` [Hz], chunks of ``block_s`` [s]; opens nothing until :meth:`start`."""
         self.on_chunk, self.samplerate, self.block_s, self.gain, self.device = on_chunk, samplerate, block_s, gain, device
+        self.denoiser = NoiseSuppressor(samplerate) if denoise else None
         self.auto_gain = AutoGain()
         self._stream: Optional[Any] = None
 
@@ -514,7 +395,9 @@ class MicStream:
         def _callback(indata: npt.NDArray[np.float32], frames: int, time_info: object, status: object) -> None:
             try:
                 mono = np.asarray(indata, dtype=np.float32).reshape(frames, -1).sum(axis=1) * self.gain
-                self.on_chunk(to_int16_mono(self.auto_gain.apply(mono)[:, None]))
+                if self.denoiser is not None:
+                    mono = self.denoiser.apply(mono)
+                self.on_chunk(to_int16_mono(np.tanh(self.auto_gain.apply(mono))[:, None]))
             except Exception:  # never let an exception reach PortAudio's thread
                 logger.exception("MicStream: chunk dropped")
 
