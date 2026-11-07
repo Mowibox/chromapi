@@ -80,7 +80,7 @@ def _load_kinematic_robot(urdf_path: Path) -> Any:
 class Kromatics:
     """Whole-body kinematics for Chromapi - one QP over all 12 joints."""
 
-    _STAND_REACH = (0.195, 0.0, 0.12)  # (x_reach, y_reach, height) [m]
+    _STAND_REACH = (0.0, 0.195, 0.12)  # (x_reach, y_reach, height) [m]
 
     def __init__(
         self,

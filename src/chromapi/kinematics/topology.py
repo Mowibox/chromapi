@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Robot topology - leg/joint naming."""
+"""Chromapi's topology - leg/joint naming."""
 
 from __future__ import annotations
 
