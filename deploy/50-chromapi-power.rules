@@ -1,0 +1,15 @@
+// Let the chromapi@ service power off and restart the Pi (the page's power button, the controller's START held, the
+// empty battery), without a password. Only outside a login session: the service, not an SSH shell of the same user.
+// Installed as /etc/polkit-1/rules.d/50-chromapi-power.rules, for the users of the 'chromapi' group:
+//   sudo groupadd -f chromapi && sudo usermod -aG chromapi $USER
+polkit.addRule(function (action, subject) {
+    var power = [
+        "org.freedesktop.login1.power-off", "org.freedesktop.login1.power-off-multiple-sessions",
+        "org.freedesktop.login1.power-off-ignore-inhibit",
+        "org.freedesktop.login1.reboot", "org.freedesktop.login1.reboot-multiple-sessions",
+        "org.freedesktop.login1.reboot-ignore-inhibit",
+    ];
+    if (power.indexOf(action.id) >= 0 && subject.isInGroup("chromapi") && !subject.session) {
+        return polkit.Result.YES;
+    }
+});

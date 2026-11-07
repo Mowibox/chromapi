@@ -1,0 +1,3 @@
+# The cooling fan (chromapi-fan@ service) drives the Pi's hardware PWM (dtoverlay=pwm,pin=13,func=4) through sysfs:
+# give it to the 'gpio' group. Installed as /etc/udev/rules.d/99-chromapi-pwm.rules (sudo groupadd -f gpio first).
+SUBSYSTEM=="pwm*", PROGRAM="/bin/sh -c 'chown -R root:gpio /sys/class/pwm && chmod -R 770 /sys/class/pwm; chown -R root:gpio /sys/devices/platform/soc/*.pwm/pwm/pwmchip* && chmod -R 770 /sys/devices/platform/soc/*.pwm/pwm/pwmchip*'"
