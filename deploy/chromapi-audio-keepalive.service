@@ -3,8 +3,12 @@
 [Unit]
 Description=Chromapi speaker keep-alive
 After=sound.target
+# Never give up retrying (systemd stops after 5 failed starts in 10 s): the card may come back
+StartLimitIntervalSec=0
 
 [Service]
+# The card sometimes comes up broken at boot: chromapi-audio-check.sh mends it (journalctl -u chromapi-audio-keepalive)
+ExecStartPre=/usr/local/sbin/chromapi-audio-check
 ExecStart=/usr/bin/aplay -q -D chromapi_speaker -t raw -f S32_LE -r 48000 -c 2 /dev/zero
 Restart=always
 RestartSec=2
