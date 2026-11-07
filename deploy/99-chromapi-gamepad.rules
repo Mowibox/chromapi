@@ -1,0 +1,6 @@
+# Applies from the controller's next connection.
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="input*:rgb:indicator", \
+  RUN+="/bin/chgrp input /sys%p/brightness /sys%p/multi_intensity", \
+  RUN+="/bin/chmod g+w /sys%p/brightness /sys%p/multi_intensity"
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="input*:red|input*:green|input*:blue", \
+  RUN+="/bin/chgrp input /sys%p/brightness", RUN+="/bin/chmod g+w /sys%p/brightness"
