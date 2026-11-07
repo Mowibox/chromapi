@@ -16,7 +16,7 @@ from scipy.spatial.transform import Rotation as SciRotation
 
 from chromapi.chromapi import DEFAULT_URDF_PATH, MotorCommand, Move, RobotState
 from chromapi.kinematics.kromatics import Kromatics
-from chromapi.kinematics.poses import APPROACH_POSE, REST_POSE, WAKE_UP_POSE
+from chromapi.kinematics.poses import WAKE_UP_POSE
 from chromapi.kinematics.topology import FOOT_FRAME_NAMES, JOINT_NAMES, LEG_NAMES
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class BalanceGains:
     w_com: float = 10.0
     w_posture: float = 1e-3
     iterations: int = 8
-    max_joint_speed: float = 1.5  # [rad.s⁻¹]
+    max_joint_speed: float = 2.0  # [rad.s⁻¹]
 
 
 class AttitudeCorrector:
@@ -134,10 +134,6 @@ class BalanceMove(Move):
         self._est = Kromatics(urdf_path, dt=dt)
         self._kin = Kromatics(urdf_path, dt=dt)
         robot = self._kin.robot
-        for name in JOINT_NAMES:
-            lower, upper = robot.get_joint_limits(name)
-            poses = [pose[name] for pose in (WAKE_UP_POSE, REST_POSE, APPROACH_POSE)]
-            robot.set_joint_limits(name, min(lower, *poses), max(upper, *poses))
 
         solver = placo.KinematicsSolver(robot)  # Free the base!!
         solver.enable_joint_limits(True)
@@ -187,10 +183,9 @@ class BalanceMove(Move):
         """Pose the chassis over the planted feet; zero is the start pose, level.
 
         Args:
-            xyz: CoM offset from its start position, in the feet frame (+X left, +Y backward, +Z up) [m].
-            rpy: Chassis (roll, pitch) [rad], measured by the IMU: roll about chassis X tilts nose-down for
-                roll > 0, pitch about Y leans sideways. The attitude PD reaches it on a slope too. An optional
-                third value turns the chassis over the feet (yaw, +Z, to the left), without feedback.
+            xyz: CoM offset from its start position, in the feet frame (+X forward, +Y left, +Z up) [m].
+            rpy: Chassis (roll, pitch) [rad], measured by the IMU. An optional third value turns the 
+                 chassis over the feet (yaw, +Z, to the left), without feedback.
 
         """
         rpy = np.asarray(rpy, dtype=float)
@@ -199,8 +194,9 @@ class BalanceMove(Move):
         self._body_yaw = float(rpy[2]) if len(rpy) > 2 else 0.0
 
     def lift(self, leg: Optional[str], q_leg: Optional[Dict[str, float]] = None) -> None:
-        """Let ``leg`` off the ground, its 3 joints at ``q_leg`` [rad] (written as is); None: all feet down again."""
-        self._lifted = (leg, dict(q_leg or {}))
+        """Let ``leg`` off the ground, its 3 joints at ``q_leg`` [rad], within the joint limits; None: all feet down again."""
+        limits = {joint: self._kin.joint_limits(joint) for joint in (q_leg or {})}
+        self._lifted = (leg, {joint: min(max(q, limits[joint][0]), limits[joint][1]) for joint, q in (q_leg or {}).items()})
 
     def on_start(self) -> None:
         """Re-anchor the feet on the next tick, start pose, all feet down."""
@@ -277,14 +273,12 @@ class BalanceMove(Move):
                 logger.warning("BalanceMove: QP solve stopped early (%s)", exc)
                 break
             robot.update_kinematics()
-        # Rate-limit against the targets actually sent, and resume the QP from them next tick.
-        step = g.max_joint_speed * dt  # [rad]
-        for name in JOINT_NAMES:
-            if name in q_lifted:
-                command.target_angles[name] = q_lifted[name]  # the gesture is already smooth, and faster
-                continue
-            sent = command.target_angles.get(name, float(robot.get_joint(name)))
-            target = sent + float(np.clip(robot.get_joint(name) - sent, -step, step))
-            command.target_angles[name] = target
-            robot.set_joint(name, target)
+        free = [name for name in JOINT_NAMES if name not in q_lifted]
+        sent = np.array([command.target_angles.get(name, float(robot.get_joint(name))) for name in free])
+        delta = np.array([robot.get_joint(name) for name in free]) - sent  # [rad]
+        scale = min(1.0, g.max_joint_speed * dt / max(float(np.abs(delta).max()), 1e-12))
+        for name, target in zip(free, sent + scale * delta):
+            command.target_angles[name] = float(target)
+            robot.set_joint(name, float(target))
+        command.target_angles.update(q_lifted)
         robot.update_kinematics()

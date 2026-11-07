@@ -21,7 +21,7 @@ __all__ = [
     "WalkMove",
 ]
 
-WALK_POSTURE: Tuple[float, float, float] = (0.11, 0.09, 0.12)  # (x_reach, y_reach, body_height) [m]
+WALK_POSTURE: Tuple[float, float, float] = (0.09, 0.11, 0.12)  # (x_reach, y_reach, body_height) [m]
 
 # Trot: diagonal pairs (tl+br), (tr+bl).
 _TROT_PHASE_OFFSETS: Dict[str, float] = {"tl": 0.0, "br": 0.0, "tr": 0.5, "bl": 0.5}
@@ -32,8 +32,8 @@ _CRAWL_PHASE_OFFSETS: Dict[str, float] = {"bl": 0.75, "tl": 0.5, "br": 0.25, "tr
 # A small epsilon for angular velocity to avoid divide-by-zero in integration
 _OMEGA_EPS = 1e-4  # [rad.s⁻¹] on a yaw rate, [rad] on a yaw step
 
-# Gait pattern heading in the odometric frame
-_PATTERN_HEADING = -np.pi / 2  # [rad]
+# Gait pattern heading in the odometric frame (chassis +X = forward)
+_PATTERN_HEADING = 0.0  # [rad]
 
 # Linear speed (fraction of max_speed_mps) above which the travel direction picks the leg order
 _ORDER_SPEED_FRACTION = 0.2
