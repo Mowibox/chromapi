@@ -6,6 +6,7 @@
     "simplify_stls": true,
     "max_stl_size": 1.0,
     "additional_xml": "additional.xml",
+    "post_import_commands": ["python3 ../../../scripts/mjcf_normals.py mjcf"],
      "joint_properties": {
         "*": {
             "class": "sts3215"
