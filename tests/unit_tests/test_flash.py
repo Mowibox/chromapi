@@ -8,7 +8,8 @@ from chromapi.utils import flash
 
 def test_the_sdk_ships_a_firmware_with_its_version():
     """An Intel HEX image (every record ':' + hex, ends with the EOF record) and a major.minor.patch version."""
-    lines = flash.SHIPPED_HEX.read_text().split()
+    hex_path, _ = flash.shipped_firmware()
+    lines = hex_path.read_text().split()
     assert all(re.fullmatch(r":[0-9A-F]+", line) for line in lines) and lines[-1] == ":00000001FF"
     assert re.fullmatch(r"\d+\.\d+\.\d+", flash.shipped_version() or "")
 

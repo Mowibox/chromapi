@@ -9,7 +9,7 @@ Usage::
 
     python examples/gamepad.py                   # on the robot
     python examples/gamepad.py --sim             # in MuJoCo, with a gamepad plugged into the PC
-    python examples/gamepad.py --sim --follow    # in MuJoCo, the camera following the robot
+    python examples/gamepad.py --sim --follow    # in MuJoCo, the camera following Chromapi
 """
 
 import argparse
@@ -30,7 +30,7 @@ def main() -> None:
     """Teleoperate until Ctrl-C."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--sim", action="store_true", help="run in MuJoCo instead of on the robot")
-    parser.add_argument("--follow", action="store_true", help="in MuJoCo, the camera follows the robot")
+    parser.add_argument("--follow", action="store_true", help="in MuJoCo, the camera follows Chromapi")
     parser.add_argument("--device", default="/dev/input/js0", help="joystick device")
     args = parser.parse_args()
 
@@ -53,8 +53,7 @@ def main() -> None:
                             robot.set_led_all(0, 0, 0)
                         robot.rest()
                     else:
-                        robot.wake_up()
-                        time.sleep(robot.wake_up_duration_s + 0.3)
+                        robot.wake_up(wait=True)
                         if not args.sim:
                             robot.set_led_all(*IDLE_LED_RGB)
                     awake = not awake
@@ -71,8 +70,7 @@ def main() -> None:
         finally:
             gamepad.stop()
             if awake:
-                robot.stop_walk()
-                time.sleep(0.3)
+                robot.stop_walk(wait=True)
                 if not args.sim:
                     robot.set_led_all(0, 0, 0)
                 robot.rest()

@@ -31,11 +31,17 @@ TOOLS: Dict[str, Any] = {
     "access": {
         "reset": ("chromapi.web.access:reset_main", "forget the web app's access code: the next visitor chooses one"),
     },
+    "gamepad": {
+        "pair": ("chromapi.input.pairing:main", "pair a Bluetooth controller (put it in pairing mode first)"),
+    },
+    "led": {
+        "error": ("chromapi.media.led:error_main", "light the ring red (the service does it when the app crashed)"),
+    },
     "motors": {
         "setup": ("chromapi.utils.setup_motors:main", "set each servo's ID and registers (--all: the 12 already assembled)"),
     },
-    "run": ("chromapi.web.app:main", "start the robot and its web app (http://<robot-ip>:5000)"),
-    "health": ("chromapi.utils.health:main", "what is wrong with the robot, and what to do about it"),
+    "run": ("chromapi.web.app:main", "start Chromapi and its web app (http://<robot-ip>:5000)"),
+    "health": ("chromapi.utils.health:main", "what is wrong with Chromapi, and what to do about it"),
     "flash": ("chromapi.utils.flash:main", "update the motherboard firmware (STM32)"),
     "report": ("chromapi.utils.report:main", "write a support report to post on Discord"),
 }

@@ -5,13 +5,12 @@ Usage::
 
     python examples/walk.py                    # on the robot
     python examples/walk.py --sim              # in MuJoCo
-    python examples/walk.py --sim --follow     # in MuJoCo, the camera following the robot
+    python examples/walk.py --sim --follow     # in MuJoCo, the camera following Chromapi
     python examples/walk.py --pattern crawl    # slower, statically stable gait
 """
 
 import argparse
 import math
-import time
 
 from chromapi.chromapi import AUDIO_DIR, IDLE_LED_RGB, Chromapi
 
@@ -25,8 +24,7 @@ def main() -> None:
     args = parser.parse_args()
 
     with Chromapi(backend="mujoco" if args.sim else "hardware", launch_viewer=args.sim, follow_robot=args.follow) as robot:
-        robot.wake_up()
-        time.sleep(robot.wake_up_duration_s + 0.3)
+        robot.wake_up(wait=True)
         start_yaw = robot.get_imu_yaw()  # [rad]
         if not args.sim:
             robot.set_led_all(*IDLE_LED_RGB)
@@ -40,7 +38,7 @@ def main() -> None:
             robot.turn(angle, pattern=args.pattern)
         drift = (robot.get_imu_yaw() - start_yaw + math.pi) % (2.0 * math.pi) - math.pi  # [rad]
         robot.turn(-math.degrees(drift), pattern=args.pattern)
-        time.sleep(1.0)  # let the feet settle on the stance footprint
+        robot.stop_walk(wait=True)  # the feet settle on the stance footprint
 
         if not args.sim:
             robot.set_led_all(0, 0, 0)

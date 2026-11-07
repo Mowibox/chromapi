@@ -26,6 +26,7 @@ import importlib.metadata
 import logging
 import os
 import signal
+import sys
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -47,7 +48,7 @@ import numpy as np
 import numpy.typing as npt
 import yaml
 
-from chromapi.estimation.attitude import IDENTITY_QUAT, ImuMount, quat_from_roll_pitch
+from chromapi.estimation.attitude import IDENTITY_QUAT, ImuMount
 from chromapi.hardware.battery import CRITICAL, EMPTY, LOW, OK, Battery
 from chromapi.hardware.motherboard_bridge import (
     BRIDGE_PROTOCOL_VERSION,
@@ -71,6 +72,12 @@ DEFAULT_MJCF_PATH = _PACKAGE_DIR / "model" / "mjcf" / "scene.xml"
 AUDIO_DIR = _PACKAGE_DIR / "assets" / "audio"
 DEFAULT_CHROMAPI_SCREAM_PATH = AUDIO_DIR / "chromapi_scream.wav"
 IDLE_LED_RGB = (63, 1, 88)
+IK_QUERY_ITERATIONS = 100  # QP iterations of inverse_kinematics(): far targets need more than the walk's
+IK_TOLERANCE_M = 0.001  # [m]
+WAIT_MARGIN_S = 1.0  # [s] a wait=True call gives up this long after the move should have ended
+STOP_WAIT_S = 3.0  # [s]
+GIL_SWITCH_INTERVAL_S = 0.001  # [s]
+CONTROL_LOOP_RT_PRIORITY = 10
 
 #: STS3215 magnetic-encoder resolution (steps per revolution) and center step, standard
 #: Feetech convention (see stm32-sts3215-lib's ``sts3215_regs.h``/memory table).
@@ -91,7 +98,7 @@ def sdk_version() -> str:
         return "unknown (not installed)"
 
 # ========================================================================================
-# Robot state
+# Chromapi state
 # ========================================================================================
 @dataclass
 class RobotState:
@@ -340,8 +347,8 @@ class HardwareBackend(RobotBackend):
         self._bridge.set_led_color_bulk(list(colors), wait=False)
 
 
-#: Chassis height [m] at which the robot rests on the floor in ZERO_POSE (settles at 0.1225 m).
-_SPAWN_HEIGHT_M = 0.125
+#: Chassis height [m] at which Chromapi rests on the floor in ZERO_POSE (settles at 0.0774 m).
+_SPAWN_HEIGHT_M = 0.08
 
 
 class MuJoCoBackend(RobotBackend):
@@ -366,6 +373,9 @@ class MuJoCoBackend(RobotBackend):
             follow_robot: If True, the viewer camera tracks the chassis (Esc frees it).
 
         """
+        if os.environ.get("XDG_SESSION_TYPE") == "wayland" and os.environ.get("DISPLAY"):
+            # GLFW's Wayland build draws no title bar (no close button): the X11 one, through XWayland, does.
+            os.environ.setdefault("PYGLFW_LIBRARY_VARIANT", "x11")
         import mujoco  # local import: mujoco is an optional ("sim") dependency
 
         self._mujoco = mujoco
@@ -436,10 +446,10 @@ class MuJoCoBackend(RobotBackend):
             self._viewer_thread = next(iter(set(threading.enumerate()) - threads_before), None)
             with self._viewer.lock():  # three-quarter front view, close on the robot
                 cam = self._viewer.cam
-                cam.lookat[:] = self._data.xpos[self._chassis_body_id] - (0.0, 0.0, 0.07)
+                cam.lookat[:] = self._data.xpos[self._chassis_body_id] - (0.0, 0.0, 0.025)
                 cam.distance = 0.85  # [m]
                 cam.elevation = -18.0  # [deg]
-                cam.azimuth = 105.0  # [deg]
+                cam.azimuth = 195.0  # [deg]
                 if self._follow_robot:
                     cam.type = self._mujoco.mjtCamera.mjCAMERA_TRACKING
                     cam.trackbodyid = self._chassis_body_id
@@ -559,21 +569,8 @@ class MuJoCoBackend(RobotBackend):
         mean_rgb = np.mean(np.asarray(colors, dtype=np.float64), axis=0)
         self._set_led_ring_rgb(mean_rgb)
 
-    def get_chassis_pose(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """Return (xyz [m], quat_wxyz) of the chassis free joint - simulation-only ground truth."""
-        return self._data.qpos[0:3].copy(), self._data.qpos[3:7].copy()
-
-    def set_chassis_pose(
-        self, xyz: Sequence[float], quat_wxyz: Sequence[float] = (1.0, 0.0, 0.0, 0.0)
-    ) -> None:
-        """Set the chassis pose (``xyz`` [m], unit quaternion) - simulation-only, for tests & resets."""
-        self._data.qpos[0:3] = xyz
-        self._data.qpos[3:7] = quat_wxyz
-        self._data.qvel[:] = 0.0
-        self._mujoco.mj_forward(self._model, self._data)
-
     def start_in_pose(self, q: Dict[str, float], settle_s: float = 0.5) -> None:
-        """Put the robot in the joint configuration ``q`` [rad], lying on the floor - simulation-only.
+        """Put Chromapi in the joint configuration ``q`` [rad], lying on the floor - simulation-only.
 
         Call before :meth:`connect`: the chassis is lowered until something touches the floor, then the
         physics runs ``settle_s`` [s] with the actuators holding ``q``.
@@ -592,20 +589,6 @@ class MuJoCoBackend(RobotBackend):
             z -= 0.001
         for _ in range(round(settle_s / self._model.opt.timestep)):
             self._mujoco.mj_step(self._model, self._data)
-
-    def set_chassis_force(self, force_xyz: Sequence[float] = (0.0, 0.0, 0.0)) -> None:
-        """Apply an external world-frame force [N] at the chassis CoM until reset - simulation-only, for push tests."""
-        self._data.xfrc_applied[self._chassis_body_id, :3] = force_xyz
-
-    def set_floor_tilt(self, roll: float = 0.0, pitch: float = 0.0) -> None:
-        """Tilt the floor plane [rad], ``Ry(pitch).Rx(roll)`` - simulation-only, for slope tests.
-
-        Call before :meth:`connect`: static world geoms are only re-posed by ``mj_setConst``,
-        which must not race the control loop.
-        """
-        self._model.geom_quat[self._floor_geom_id] = quat_from_roll_pitch(roll, pitch)
-        self._mujoco.mj_setConst(self._model, self._data)
-        self._mujoco.mj_forward(self._model, self._data)
 
 
 # ========================================================================================
@@ -690,7 +673,9 @@ def _minimum_jerk(t01: float) -> float:
 
 
 _YAW_PRESTAGE_THRESHOLD_RAD = 0.2  # [rad]
-_YAW_PRESTAGE_SETTLE_S = 0.4  # [s]
+_SETTLE_MAX_S = 0.4  # [s] at most, for the servos to stop after a transition
+_SETTLE_WINDOW_S = 0.05  # [s]
+_SETTLE_MOTION_RAD = 0.005  # [rad] the joints moved less than this over the window: settled
 
 
 class Chromapi:
@@ -748,6 +733,8 @@ class Chromapi:
         self.kinematics = K.Kromatics(
             DEFAULT_URDF_PATH, dt=1.0 / self.loop_hz, initial_pose=dict(K.ZERO_POSE)
         )
+        self._query_kinematics: Optional[K.Kromatics] = None  # its own solver: the walk uses self.kinematics
+        self._query_lock = threading.Lock()
 
         if backend == "hardware":
             imu_cfg = self.config.get("imu", {})
@@ -775,7 +762,6 @@ class Chromapi:
         self._targets_lock = threading.Lock()
         self._current_targets: Dict[str, float] = dict(K.ZERO_POSE)  # [rad]
         self._active_move: Optional[Move] = None
-        self._registered_moves: Dict[str, Move] = {}
         self._walk_move: Optional["WalkMove"] = None
         self._stop_event = threading.Event()
         self._loop_thread: Optional[threading.Thread] = None
@@ -805,6 +791,7 @@ class Chromapi:
 
         self._connected = True
         self._stop_event.clear()
+        sys.setswitchinterval(GIL_SWITCH_INTERVAL_S)
         self._loop_thread = threading.Thread(
             target=self._control_loop, name="chromapi-control-loop", daemon=True
         )
@@ -859,6 +846,13 @@ class Chromapi:
             pass
 
     def _control_loop(self) -> None:
+        if isinstance(self.backend, HardwareBackend):
+            # Real-time priority, allowed for the service only
+            try:
+                os.sched_setscheduler(0, os.SCHED_FIFO, os.sched_param(CONTROL_LOOP_RT_PRIORITY))
+                logger.info("Control loop: real-time priority %d", CONTROL_LOOP_RT_PRIORITY)
+            except (OSError, AttributeError):
+                pass
         period = 1.0 / self.loop_hz  # [s]
         last_tick = time.monotonic()  # [s]
         next_deadline = last_tick + period  # [s]
@@ -920,7 +914,7 @@ class Chromapi:
             logger.error("Battery empty (%.2f V without load) - lying down; need to charge", self.battery.ocv_v)
             with self._targets_lock:
                 start = dict(self._current_targets)
-            self.play_move(_InterpolationMove(start, self.rest_pose(), self.rest_duration_s), name="_goto")
+            self.play_move(_InterpolationMove(start, self.rest_pose(), self.rest_duration_s))
         elif level is not None:
             logger.info("Battery %s: %.0f %%", level, self.battery.percent)
 
@@ -936,15 +930,96 @@ class Chromapi:
         with self._targets_lock:
             return dict(self._current_targets)
 
+    def get_joint_positions(self) -> Dict[str, float]:
+        """Return the measured joint angles [rad]; the commanded ones until the first reading."""
+        state = self.get_state()
+        if state is not None and state.joint_positions:
+            return dict(state.joint_positions)
+        return self.get_current_joint_positions()
+
+    @property
+    def is_connected(self) -> bool:
+        """The control loop runs."""
+        return self._connected
+
+    @property
+    def active_move(self) -> Optional[Move]:
+        """The :class:`Move` driving the joints, None if they hold."""
+        return self._active_move
+
+    @property
+    def walk_move(self) -> Optional["WalkMove"]:
+        """The last :class:`~chromapi.locomotion.gait.WalkMove` from :meth:`walk`, active or not."""
+        return self._walk_move
+
+    @property
+    def is_walking(self) -> bool:
+        """A walk is under way (not yet settled on the neutral stance)."""
+        move = self._walk_move
+        return move is not None and self._active_move is move and not move.settled
+
+    @property
+    def is_moving(self) -> bool:
+        """A transition, a walk or another move with a ``done`` flag is under way."""
+        return self.is_walking or getattr(self._active_move, "done", True) is False
+
+    def _wait_while_moving(self, timeout_s: float) -> None:
+        deadline = time.monotonic() + timeout_s  # [s]
+        while self.is_moving and time.monotonic() < deadline:
+            time.sleep(0.01)
+
+    def _wait_until_settled(self) -> None:
+        """Wait (up to :data:`_SETTLE_MAX_S`) for the measured joints to stop moving."""
+        deadline = time.monotonic() + _SETTLE_MAX_S  # [s]
+        before = self.get_joint_positions()
+        while time.monotonic() < deadline:
+            time.sleep(_SETTLE_WINDOW_S)
+            now = self.get_joint_positions()
+            if max(abs(now[j] - before[j]) for j in now) < _SETTLE_MOTION_RAD:
+                return
+            before = now
+
     def get_imu_orientation(self) -> Tuple[float, float, float, float]:
         """Return the trunk orientation quaternion (w, x, y, z), or identity if no state yet."""
         state = self.get_state()
         return state.imu_quat_wxyz if state is not None else (1.0, 0.0, 0.0, 0.0)
 
+    # -- kinematics -----------------------------------------------------------------------
+
+    def _query_solver(self) -> K.Kromatics:
+        if self._query_kinematics is None:
+            self._query_kinematics = K.Kromatics(DEFAULT_URDF_PATH, dt=1.0 / self.loop_hz)
+        return self._query_kinematics
+
+    def forward_kinematics(self, q: Optional[Dict[str, float]] = None) -> Dict[str, npt.NDArray[np.float64]]:
+        """Foot positions (x, y, z) [m] in the chassis frame, for ``q`` [rad] or the measured joints by default."""
+        if q is None:
+            q = self.get_joint_positions()
+        with self._query_lock:
+            return self._query_solver().forward_kinematics(q)
+
+    def inverse_kinematics(self, feet: Dict[str, Sequence[float]]) -> Dict[str, float]:
+        """Joint angles [rad] placing each foot of ``feet`` (leg -> (x, y, z) [m], chassis frame); the others stay.
+
+        Moves nothing: pass the result to :meth:`set_joint_targets`. Raises ValueError if a foot is out of reach.
+        """
+        q0 = self.get_current_joint_positions()
+        targets = {leg: np.asarray(xyz, dtype=float) for leg, xyz in feet.items()}
+        with self._query_lock:
+            solver = self._query_solver()
+            q, _ = solver.inverse_kinematics({**solver.forward_kinematics(q0), **targets}, q_init=q0,
+                                             iterations=IK_QUERY_ITERATIONS)
+            q = {joint: q[joint] if joint[:2] in targets else angle for joint, angle in q0.items()}
+            reached = solver.forward_kinematics(q)
+        error_m = max(float(np.linalg.norm(reached[leg] - target)) for leg, target in targets.items())
+        if error_m > IK_TOLERANCE_M:
+            raise ValueError(f"foot target out of reach ({error_m * 1000:.1f} mm off)")
+        return q
+
     # -- direct joint control ------------------------------------------------------------
 
     def set_joint_targets(
-        self, q: Union[Dict[str, float], Sequence[float]], duration: float = 0.0
+        self, q: Union[Dict[str, float], Sequence[float]], duration: float = 0.0, wait: bool = False
     ) -> None:
         """Command joint targets directly, optionally with a minimum-jerk transition.
 
@@ -954,6 +1029,7 @@ class Chromapi:
                 current target.
             duration: If > 0, interpolate from the current targets over this duration [s]. If 0,
                 jump immediately (only safe for small corrections).
+            wait: Return once the transition is over.
 
         """
         target_dict = K.Kromatics.to_dict(q) if not isinstance(q, dict) else dict(q)
@@ -965,7 +1041,9 @@ class Chromapi:
 
         with self._targets_lock:
             start = dict(self._current_targets)
-        self.play_move(_InterpolationMove(start, target_dict, duration), name="_goto")
+        self.play_move(_InterpolationMove(start, target_dict, duration))
+        if wait:
+            self._wait_while_moving(duration + WAIT_MARGIN_S)
 
     # -- high-level poses -----------------------------------------------------------------
 
@@ -981,17 +1059,16 @@ class Chromapi:
         """Return the compact resting joint configuration (``kromatics.REST_POSE``)."""
         return dict(K.REST_POSE)
 
-    def approach(self, duration: Optional[float] = None) -> None:
+    def approach(self, duration: Optional[float] = None, wait: bool = False) -> None:
         """Smoothly pull the legs in to :meth:`approach_pose`, from whatever configuration."""
-        self.set_joint_targets(
-            self.approach_pose(), duration=duration or self.approach_duration_s
-        )
+        self.set_joint_targets(self.approach_pose(), duration=duration or self.approach_duration_s, wait=wait)
 
-    def wake_up(self, duration: Optional[float] = None) -> None:
+    def wake_up(self, duration: Optional[float] = None, wait: bool = False) -> None:
         """Smoothly stand up from whatever configuration the robot is currently in.
 
         Args:
             duration: Transition time [s] (default: ``config["control"]["wake_up_duration_s"]``).
+            wait: Return once standing.
 
         """
         self.enable_motors()
@@ -1004,35 +1081,31 @@ class Chromapi:
             abs(target[joint] - current.get(joint, 0.0)) for joint in yaw_joints
         )
         if max_yaw_delta <= _YAW_PRESTAGE_THRESHOLD_RAD:
-            self.set_joint_targets(target, duration=total_duration)
+            self.set_joint_targets(target, duration=total_duration, wait=wait)
             return
 
-        logger.info(
-            "wake_up: pre-staging a %.1f deg hip-yaw correction at the current stance "
-            "height before rising",
-            np.degrees(max_yaw_delta),
-        )
         yaw_prestage = dict(current)
         for joint in yaw_joints:
             yaw_prestage[joint] = target[joint]
         prestage_duration = total_duration * 0.6  # [s]
         rise_duration = total_duration * 0.4  # [s]
-        self.set_joint_targets(yaw_prestage, duration=prestage_duration)
-        time.sleep(prestage_duration + _YAW_PRESTAGE_SETTLE_S)
-        self.set_joint_targets(target, duration=rise_duration)
+        self.set_joint_targets(yaw_prestage, duration=prestage_duration, wait=True)
+        self._wait_until_settled()
+        self.set_joint_targets(target, duration=rise_duration, wait=wait)
 
-    def rest(self, duration: Optional[float] = None, disable_torque: bool = True) -> None:
+    def rest(self, duration: Optional[float] = None, disable_torque: bool = True, wait: bool = False) -> None:
         """Smoothly crouch down to :meth:`rest_pose` and optionally release motor torque.
 
         Args:
             duration: Transition time [s] (default: ``config["control"]["rest_duration_s"]``).
-            disable_torque: If True (default), disable torque once crouch is reached.
+            disable_torque: If True (default), disable torque once crouch is reached (this waits too).
+            wait: Return once lying down.
 
         """
-        transition_duration = duration or self.rest_duration_s  # [s]
-        self.set_joint_targets(self.rest_pose(), duration=transition_duration)
+        self.set_joint_targets(self.rest_pose(), duration=duration or self.rest_duration_s,
+                               wait=wait or disable_torque)
         if disable_torque:
-            time.sleep(transition_duration + 0.1)
+            self._wait_until_settled()
             self.disable_motors()
 
     def go_to_pose(
@@ -1043,6 +1116,7 @@ class Chromapi:
         reference_height: Optional[float] = None,
         x_reach: Optional[float] = None,
         y_reach: Optional[float] = None,
+        wait: bool = False,
     ) -> bool:
         """Tilt the trunk while standing, feet planted (quasi-static body posing).
 
@@ -1054,6 +1128,7 @@ class Chromapi:
             reference_height: Stance height for the default footprint [m].
             x_reach: Footprint half-width along chassis X for the same default footprint [m].
             y_reach: Footprint half-width along chassis Y for the same default footprint [m].
+            wait: Return once the pose is reached.
 
         Returns:
             True if the target pose was reachable by all 4 legs (the transition is still
@@ -1076,7 +1151,7 @@ class Chromapi:
         )
         if not converged:
             logger.warning("go_to_pose target is outside the reachable envelope for some leg")
-        self.set_joint_targets(q_target, duration=duration)
+        self.set_joint_targets(q_target, duration=duration, wait=wait)
         return converged
 
     # -- walking --------------------------------------------------------------------------
@@ -1104,7 +1179,7 @@ class Chromapi:
 
         Raises:
             RuntimeError: Starting to walk with the battery under ``critical_percent``. An ongoing walk
-                still takes new velocities, until the battery is empty and the robot lies down.
+                still takes new velocities, until the battery is empty and Chromapi lies down.
 
         """
         percent = self.battery.percent
@@ -1128,15 +1203,22 @@ class Chromapi:
         if current is None or replace(resolved_params, body_height=current.gait.params.body_height) != current.gait.params:
             current = _WalkMove(self.kinematics, resolved_params)
             self._walk_move = current
-        current.set_velocity(vy, -vx, wz)  # chassis +X=left, +Y=backward - see this method's docstring
+        current.set_velocity(vx, vy, wz)  # chassis frame: +X forward, +Y left
         if self._active_move is not current:
-            self.play_move(current, name="_walk")
+            self.play_move(current)
         return current
 
-    def stop_walk(self) -> None:
-        """Ramp the walking velocity to zero, settling the feet at the neutral stance footprint."""
+    def stop_walk(self, wait: bool = False) -> None:
+        """Ramp the walking velocity to zero, settling the feet at the neutral stance footprint.
+
+        Args:
+            wait: Return once the feet are settled (up to :data:`STOP_WAIT_S`).
+
+        """
         if self._walk_move is not None:
             self._walk_move.set_velocity(0.0, 0.0, 0.0)
+        if wait:
+            self._wait_while_moving(STOP_WAIT_S)
 
     def _wait_until_stopped(self, timeout_s: float = 3.0) -> None:
         """Block until the walking velocity has ramped down to zero (after :meth:`stop_walk`)."""
@@ -1239,8 +1321,11 @@ class Chromapi:
         """Set all 18 ring LEDs at once from a list of (r, g, b) tuples."""
         self.backend.set_led_bulk(colors)
 
-    def play_sound(self, path: Union[str, Path], volume: Optional[float] = None, wait: bool = False) -> bool:
-        """Play a .wav on the robot's speaker (``config["audio"]``), or the PC's default output in simulation.
+    def play_sound(self, path: Union[str, Path], volume: Optional[float] = None, wait: bool = False,
+                   gain: float = 1.0) -> bool:
+        """Play a .wav on Chromapi's speaker (``config["audio"]``), or the PC's default output in simulation.
+
+        ``gain`` multiplies the volume (``config["audio"]["volume"]`` by default), for a sound recorded quieter.
 
         Returns False, with a warning in the log, if it could not be played (no ``audio`` extra,
         no output device).
@@ -1248,28 +1333,20 @@ class Chromapi:
         from chromapi.media.audio import find_output_device, play_wav
 
         device = find_output_device(self._speaker_hint) if self._speaker_hint else None
-        return play_wav(path, wait=wait, volume=self.sound_volume if volume is None else volume, device=device)
+        return play_wav(path, wait=wait, volume=(self.sound_volume if volume is None else volume) * gain, device=device)
 
     # -- moves / behaviors --------------------------------------------------------------
 
-    def register_move(self, name: str, move: Move) -> None:
-        """Register a :class:`Move` under a name, for later :meth:`play_move`."""
-        self._registered_moves[name] = move
-
-    def play_move(self, move: Union[str, Move], name: str = "") -> None:
-        """Activate a :class:`Move` - either by registered name, or directly.
-
-        Stops whichever move is currently active (calling its ``on_stop``) first.
-        """
-        resolved = self._registered_moves[move] if isinstance(move, str) else move
+    def play_move(self, move: Move) -> None:
+        """Activate ``move``, stopping (``on_stop``) the active one first."""
         with self._targets_lock:
             previous = self._active_move
             self._active_move = None
         if previous is not None:
             previous.on_stop()
-        resolved.on_start()
+        move.on_start()
         with self._targets_lock:
-            self._active_move = resolved
+            self._active_move = move
 
     def stop_move(self) -> None:
         """Deactivate the current move, freezing the joint targets at their last value."""
@@ -1278,10 +1355,6 @@ class Chromapi:
             self._active_move = None
         if move is not None:
             move.on_stop()
-
-    def cancel_move(self) -> None:
-        """Alias for :meth:`stop_move`."""
-        self.stop_move()
 
 
 class _InterpolationMove(Move):
@@ -1293,10 +1366,12 @@ class _InterpolationMove(Move):
         self._target = target
         self._duration = max(duration, 1e-6)  # [s]
         self._elapsed = 0.0  # [s]
+        self.done = False
 
     def step(self, state: RobotState, command: MotorCommand, dt: float) -> None:
         """Advance the interpolation by ``dt`` and write the blended targets."""
         self._elapsed += dt
+        self.done = self._elapsed >= self._duration
         s = _minimum_jerk(self._elapsed / self._duration)
         for joint, target in self._target.items():
             start = self._start.get(joint, target)

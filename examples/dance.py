@@ -78,12 +78,10 @@ def main() -> None:
     args = parser.parse_args()
 
     with Chromapi(backend="mujoco" if args.sim else "hardware", launch_viewer=args.sim) as robot:
-        robot.wake_up()
-        time.sleep(robot.wake_up_duration_s + 0.3)
+        robot.wake_up(wait=True)
 
         x_reach, y_reach, height = WALK_POSTURE
-        robot.go_to_pose(duration=1.0, x_reach=x_reach, y_reach=y_reach, reference_height=height)
-        time.sleep(1.5)
+        robot.go_to_pose(duration=1.0, x_reach=x_reach, y_reach=y_reach, reference_height=height, wait=True)
 
         dance = TiltCircle(robot.kinematics)
         robot.play_sound(DEFAULT_CHROMAPI_SCREAM_PATH)
@@ -93,8 +91,7 @@ def main() -> None:
                 robot.set_led_bulk(rainbow(dance.t / CIRCLE_S))  # one ring turn per trunk circle
             time.sleep(0.05)
 
-        robot.go_to_pose(duration=0.5, x_reach=x_reach, y_reach=y_reach, reference_height=height)
-        time.sleep(0.8)
+        robot.go_to_pose(duration=0.5, x_reach=x_reach, y_reach=y_reach, reference_height=height, wait=True)
         if not args.sim:
             robot.set_led_all(0, 0, 0)
         robot.rest()
