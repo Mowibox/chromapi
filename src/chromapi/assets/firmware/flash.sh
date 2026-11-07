@@ -21,7 +21,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PORT="/dev/ttyAMA0"
 BAUD="115200"
 
-GPIOCHIP="gpiochip0"
+# The header's chip, by line name: gpiochip0 on a Pi 4 / Zero 2W, gpiochip4 on a Pi 5
+GPIOCHIP="$(gpiofind GPIO22 2>/dev/null | cut -d' ' -f1 || true)"
+GPIOCHIP="${GPIOCHIP:-gpiochip0}"
 LINE_BOOT0=22
 LINE_NRST=23
 INIT_RETRIES=10
