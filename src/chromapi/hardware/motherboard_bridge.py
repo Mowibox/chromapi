@@ -22,7 +22,7 @@ DEFAULT_BAUDRATE = 2_000_000
 _HOT_PATH_TIMEOUT_S = 0.05  # [s]
 # Blocking granularity of a single serial read, set once on the port
 _READ_POLL_S = 0.002  # [s]
-# The STM32 releases every servo's torque after 100 ms without a valid frame: keepalive period
+# The STM32 releases the servos without a valid frame
 _LINK_KEEPALIVE_S = 0.05  # [s]
 
 # seq, t_us, cycle_us, power, 12 x servo (pos, speed, load, temp, volt, current),
@@ -38,7 +38,7 @@ def _crc16(data: bytes) -> int:
 
 
 #: Bridge protocol this SDK speaks - must match the firmware's BRIDGE_PROTOCOL_VERSION (bridge.h).
-BRIDGE_PROTOCOL_VERSION = 1
+BRIDGE_PROTOCOL_VERSION = 2
 
 
 class Command(IntEnum):
@@ -270,7 +270,7 @@ class BridgeClient:
     def sleep(self, duration: float) -> None:
         """``time.sleep()`` that keeps the STM32 link watchdog fed while torque is held.
 
-        The firmware releases every servo after 100 ms without a valid frame. A script that holds
+        The firmware releases every servo without a valid frame. A script that holds
         torque while idle must wait with this instead of ``time.sleep()``. The pings expect no
         reply here: their ACKs are dropped by the next command's ``_drain()``.
         """

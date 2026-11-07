@@ -17,20 +17,30 @@ from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-PWM_CHIP = 0
-PWM_CHANNEL = 1
+MODEL_PATH = Path("/proc/device-tree/model")
+
+
+def _board_pwm_chip() -> int:
+    """GPIO 13's PWM chip: the SoC's on a Pi 4 / Zero 2W, the RP1's on a Pi 5."""
+    try:
+        model = MODEL_PATH.read_text()
+    except OSError:
+        return 0
+    return 2 if model.startswith("Raspberry Pi 5") else 0
+
+
+PWM_CHIP = _board_pwm_chip()
+PWM_CHANNEL = 1  # GPIO 13 is channel 1 on all three boards
 PWM_FREQUENCY_HZ = 25_000  # [Hz]
 TEMP_PATH = Path("/sys/class/thermal/thermal_zone0/temp")
-OVERRIDE_PATH = Path("/run/chromapi/fan")  # the service's RuntimeDirectory: gone when it stops
-# [°C] the Pi 4 throttles from 80 °C. Measured (contact_runs, 2026-10-25/26): ~55 °C standing without the
-# fan, 42-46 °C trotting 37 min with fan, LEDs, audio and camera at full fan; the fan costs no measurable power.
-TARGET_TEMP_C = 50.0
+OVERRIDE_PATH = Path("/run/chromapi/fan")  # the service's RuntimeDirectory
+TARGET_TEMP_C = 60.0  # [°C] the Pi 4 throttles from 80 °C
 FULL_SPEED_TEMP_C = 75.0  # [°C] full speed whatever was requested
 KP = 5.0  # [%.°C⁻¹]
 KI = 0.1  # [%.°C⁻¹.s⁻¹]
-MIN_RUN_PERCENT = 30.0  # [%] slower, the fan may stall: the automatic mode stops it instead
+MIN_RUN_PERCENT = 30.0  # [%] below, the fan may stall
 PERIOD_S = 1.0  # [s] also the delay before a request applies
-EXPORT_TIMEOUT_S = 2.0  # [s] for udev to give the freshly exported channel to the gpio group
+EXPORT_TIMEOUT_S = 2.0  # [s] for udev to set the exported channel's group
 
 
 def _pwm_dir(chip: int = PWM_CHIP, channel: int = PWM_CHANNEL) -> Path:
