@@ -47,3 +47,13 @@ def test_waits_for_udev_after_export(tmp_path: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(fan, "_pwm_dir", lambda chip_=0, channel=1: chip / f"pwm{channel}")
     assert fan.Fan().available and not refusals
     assert (chip / "pwm1" / "enable").read_text() == "1"
+
+
+def test_board_pwm_chip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    model = tmp_path / "model"
+    monkeypatch.setattr(fan, "MODEL_PATH", model)
+    assert fan._board_pwm_chip() == 0  # off a Pi
+    for name, chip in (("Raspberry Pi 4 Model B Rev 1.5", 0), ("Raspberry Pi Zero 2 W Rev 1.0", 0),
+                       ("Raspberry Pi 5 Model B Rev 1.0", 2)):
+        model.write_text(name + "\0")
+        assert fan._board_pwm_chip() == chip

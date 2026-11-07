@@ -35,8 +35,8 @@ def test_sent_targets_are_rate_limited_on_a_tilted_floor():
 
     move = BalanceMove(dt=0.01)
     state = RobotState(joint_positions=dict(WAKE_UP_POSE))
-    # Chassis 10 deg nose-down, IMU in the URDF "imu" frame (yaw -90 deg in the chassis).
-    x, y, z, w = (Rotation.from_euler("x", 10, degrees=True) * Rotation.from_euler("z", -90, degrees=True)).as_quat()
+    # Chassis 10 deg nose-down (pitch about +Y), IMU frame = chassis frame.
+    x, y, z, w = Rotation.from_euler("y", 10, degrees=True).as_quat()
     state.imu_quat_wxyz = (w, x, y, z)
     sent = dict(WAKE_UP_POSE)
     for _ in range(30):
@@ -44,7 +44,7 @@ def test_sent_targets_are_rate_limited_on_a_tilted_floor():
         move.step(state, command, 0.01)
         assert max(abs(command.target_angles[j] - sent[j]) for j in JOINT_NAMES) <= move.gains.max_joint_speed * 0.01 + 1e-9
         sent = dict(command.target_angles)
-    assert move.rpy_cmd[0] < 0  # nose-down measured -> commands nose-up
+    assert move.rpy_cmd[1] < 0  # nose-down measured -> commands nose-up
     assert any(abs(sent[j] - WAKE_UP_POSE[j]) > 1e-3 for j in JOINT_NAMES)  # and actually moves
 
 
@@ -116,3 +116,36 @@ def test_a_lifted_leg_follows_its_joints_and_the_others_stay_planted():
     move.lift(None)
     landed = _settle(move, lifted, 100)
     assert landed["tl_2"] == pytest.approx(start["tl_2"], abs=0.02)
+
+
+def test_a_lean_step_keeps_the_commanded_feet_in_place():
+    """A full lean at once: the joint speed limit scales the whole step, so the feet stay where they are on the way."""
+    import itertools
+    import math
+
+    import numpy as np
+
+    from chromapi.chromapi import DEFAULT_URDF_PATH, MotorCommand, RobotState
+    from chromapi.kinematics.kromatics import Kromatics
+    from chromapi.kinematics.poses import WAKE_UP_POSE
+    from chromapi.kinematics.topology import LEG_NAMES
+    from chromapi.locomotion.balance import BalanceGains, BalanceMove
+
+    fk = Kromatics(DEFAULT_URDF_PATH)
+
+    def spread(q):
+        feet = fk.forward_kinematics(q)
+        return np.array([np.linalg.norm(feet[a] - feet[b]) for a, b in itertools.combinations(LEG_NAMES, 2)])
+
+    move = BalanceMove(dt=0.01, gains=BalanceGains(kp=0.0, kd=0.0))  # no IMU here: no attitude feedback
+    state, sent = RobotState(joint_positions=dict(WAKE_UP_POSE)), dict(WAKE_UP_POSE)
+    move.step(state, MotorCommand(target_angles=dict(sent)), 0.01)
+    move.set_body_pose((0.0, 0.0, 0.0), (math.radians(4.2), math.radians(4.2)))
+    worst = 0.0
+    for _ in range(60):
+        command = MotorCommand(target_angles=dict(sent))
+        move.step(state, command, 0.01)
+        sent = dict(command.target_angles)
+        worst = max(worst, float(np.abs(spread(sent) - spread(WAKE_UP_POSE)).max()))
+    assert worst < 0.003  # [m] was 13 mm with each joint clipped on its own
+    assert max(abs(sent[j] - WAKE_UP_POSE[j]) for j in sent) > math.radians(10)  # and it did lean
