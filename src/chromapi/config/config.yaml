@@ -106,6 +106,10 @@ audio:
   speaker: ""
   volume: 0.25
   mic_gain: 30.0
+  mic_denoise: true
+
+moves:
+  dataset: ""  # a Hugging Face dataset (e.g. "Mowibox/chromaposes") added to the bundled moves; empty: none
 
 control:
   loop_hz: 100.0

@@ -1,0 +1,15 @@
+{"title": "angry", "description": "Crouched forward, shaking with rage: angry, upset.", "motion_file": "angry.json"}
+{"title": "confused", "description": "Head tilted to one side, peering forward: confused, not understanding.", "motion_file": "confused.json"}
+{"title": "dizzy", "description": "Chromapi circles twice, tilting with it: dizzy, after a bump.", "motion_file": "dizzy.json"}
+{"title": "excited", "description": "Four quick bounces, turning left and right: excited.", "motion_file": "excited.json"}
+{"title": "greeting", "description": "A front leg lifts and waves once, the weight on the other three: hello, goodbye.", "motion_file": "greeting.json"}
+{"title": "happy", "description": "Three little hops, swaying side to side: happy, pleased.", "motion_file": "happy.json"}
+{"title": "joy", "description": "Head up, rising a little, held: a proud, happy look.", "motion_file": "joy.json"}
+{"title": "kick", "description": "A front leg lifts, kicks forward once and comes back, the weight on the other three: playful.", "motion_file": "kick.json"}
+{"title": "no", "description": "Two shakes of the head, left and right: refusing, saying no.", "motion_file": "no.json"}
+{"title": "purring", "description": "Low, swaying slowly side to side, as a cat rubbing against a leg: content, purring.", "motion_file": "purring.json"}
+{"title": "sad", "description": "Head down, sinking a little, then slowly back: sad, disappointed.", "motion_file": "sad.json"}
+{"title": "scared", "description": "Recoil backward and crouch, trembling: scared.", "motion_file": "scared.json"}
+{"title": "surprised", "description": "A jump back, head up, then slowly forward again: surprised.", "motion_file": "surprised.json"}
+{"title": "tired", "description": "Sinking low, head down, swaying once, as in a yawn: tired, sleepy.", "motion_file": "tired.json"}
+{"title": "yes", "description": "Two nods of the head: agreeing, saying yes.", "motion_file": "yes.json"}
