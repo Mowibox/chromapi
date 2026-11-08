@@ -36,7 +36,7 @@ SETTLE_S = 0.4  # [s] back to the start pose before done
 
 # What check_move lets through (the bundled moves stay well within: 3 s, 0.22 m/s, 1.4 rad/s, leg 4.7 rad/s)
 MAX_FILE_BYTES = 256_000
-MAX_DURATION_S = 60.0  # [s]
+MAX_DURATION_S = 10.0  # [s]
 MIN_STEP_S = 0.005  # [s] between samples
 MAX_SHIFT_M = 0.03  # [m] |x|, |y|, |z| of a body move
 MAX_TILT_RAD = 0.2  # [rad] |roll|, |pitch|, |yaw|
