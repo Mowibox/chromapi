@@ -1,0 +1,15 @@
+# chromapi.local as an alias of this robot: see chromapi-alias.sh.
+# Installed as /etc/systemd/system/chromapi-alias.service by setup_rpi.sh.
+[Unit]
+Description=Chromapi alias chromapi.local (mDNS)
+After=avahi-daemon.service network-online.target
+Requires=avahi-daemon.service
+
+[Service]
+ExecStart=/usr/local/sbin/chromapi-alias
+# As root: under DynamicUser, avahi-publish cannot reach avahi over D-Bus ("Failed to create client object")
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

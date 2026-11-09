@@ -1,0 +1,16 @@
+# Hostname, Wi-Fi from network-config, SSH host keys: see chromapi-boot.sh.
+# Installed as /etc/systemd/system/chromapi-boot.service by setup_rpi.sh.
+[Unit]
+Description=Chromapi boot set-up (hostname, network-config, SSH keys)
+DefaultDependencies=no
+After=local-fs.target
+RequiresMountsFor=/boot/firmware /var/lib
+Before=systemd-networkd.service network-pre.target avahi-daemon.service ssh.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/chromapi-boot
+
+[Install]
+WantedBy=sysinit.target

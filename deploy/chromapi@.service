@@ -1,0 +1,27 @@
+# The robot and its web app at boot (`chromapi run`), lying down until asked.
+# Installed as /etc/systemd/system/chromapi@.service, then, for the user chromapi is installed for:
+#   sudo systemctl enable --now chromapi@$USER
+# Logs: journalctl -u chromapi@$USER -f
+[Unit]
+Description=Chromapi robot and web app (as %i)
+After=network-online.target bluetooth.target sound.target chromapi-audio-keepalive.service
+Wants=network-online.target
+
+[Service]
+# %i: the name after the @, so that the service finds that user's chromapi install, groups and access code.
+User=%i
+# '+': as root. The CPU is used at full speed.
+ExecStartPre=+/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > "$g"; done'
+ExecStart=/usr/bin/python3 -m chromapi run
+# Ctrl-C, not SIGTERM: the app lies Chromapi down and releases the servos before it exits.
+KillSignal=SIGINT
+TimeoutStopSec=15
+# Stopped by a crash (not by systemctl stop nor the page's power button): the ring turns red.
+ExecStopPost=/bin/sh -c '[ "$SERVICE_RESULT" = success ] || exec /usr/bin/python3 -m chromapi led error'
+Restart=on-failure
+RestartSec=5
+# The control loop asks for a real-time priority (chromapi.CONTROL_LOOP_RT_PRIORITY).
+LimitRTPRIO=20
+
+[Install]
+WantedBy=multi-user.target
