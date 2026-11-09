@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#120a1c">
+<title>Chromapi</title>
+<link rel="icon" href="/favicon.ico">
+<script src="/static/socket.io.min.js"></script>
+<style>
+/* Chroma identity: violet, violet to pink gradient, Varela Round */
+@font-face { font-family: 'Varela Round'; font-weight: 400; font-display: swap;
+  src: url('/static/fonts/varela-round.woff2') format('woff2'); }
+:root {
+  --primary: rgb(148, 20, 223); --pink: #f93eff;
+  --grad: linear-gradient(83deg, var(--primary) 0%, var(--pink) 100%);
+  --grad-text: linear-gradient(83deg, var(--primary) 0%, #b927d0 100%); --bad-fill: #d42a47;
+  --bg: #0d0814; --surface: #1a1124; --surface-2: #251833; --line: rgba(200, 120, 255, 0.18);
+  --text: #f4eefa; --muted: #a596b8; --ok: #2fe08a; --warn: #ffc53d; --bad: #ff4d6d;
+  --radius: 22px; --round: 56px; --stick: 150px;
+  --glass: rgba(20, 12, 30, 0.85);  /* >= 4.5:1 over a white image */
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+input[type=range] { height: 44px; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font-family: 'Varela Round', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overflow: hidden; }
+body { background: radial-gradient(1200px 600px at 50% -10%, rgba(148, 20, 223, 0.25), transparent 60%), var(--bg); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+@keyframes blink { 50% { opacity: 0.35; } }
+
+/* ---------- Top bar ---------- */
+.top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top)); }
+.brand { order: 0; display: flex; align-items: center; gap: 8px; font-size: 1.15em; letter-spacing: 0.3px; }
+.brand img { width: 34px; height: 34px; }
+.chips { order: 1; display: flex; gap: 6px; flex: 1; justify-content: center; align-items: center; flex-wrap: wrap; }
+#b-settings { order: 2; } #b-power { order: 3; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line); font-size: 0.9em; white-space: nowrap; }
+.chip svg.i { width: 18px; height: 18px; }
+/* Battery chip: click to show the charge on the ring */
+.chip-btn { position: relative; cursor: pointer; color: inherit; margin: 0; touch-action: manipulation; }
+.chip-btn::after { content: ''; position: absolute; inset: -8px -4px; }
+.chip.low { color: var(--warn); } .chip.critical, .chip.empty, .chip.bad { color: var(--bad); }
+.chip.empty { animation: blink 1s steps(2) infinite; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); }
+.chip.live .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.chip.sim .dot { background: #27c2f5; box-shadow: 0 0 8px #27c2f5; }
+.chip.warn .dot { background: var(--warn); }
+.chip.bt .dot { background: #2f7bff; box-shadow: 0 0 8px #2f7bff; }
+#chip-link .i { display: none; } #chip-link.bt .i { display: inline-block; }
+
+/* ---------- Round buttons ---------- */
+.round { width: var(--round); height: var(--round); border-radius: 50%; border: 1px solid var(--line);
+  background: var(--surface); display: inline-grid; place-items: center; cursor: pointer; touch-action: manipulation;
+  transition: transform 0.1s, background 0.2s; }
+.round:hover { background: var(--surface-2); }
+.round:active { transform: scale(0.94); }
+.round:disabled { opacity: 0.35; cursor: default; transform: none; }
+.round.small { --round: 44px; }
+.round.danger { color: var(--bad); }
+.round.badge { position: relative; }
+.round.badge::after { content: ''; position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--pink); box-shadow: 0 0 8px var(--pink); }
+.round.rec.on { background: var(--bad); border-color: transparent; animation: blink 1s steps(2) infinite; }
+.rec-dot { width: 18px; height: 18px; border-radius: 50%; background: var(--bad); }
+.talkie { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; }
+.talkie .round { background: var(--glass); backdrop-filter: blur(8px); }
+.round.talk { background: var(--grad-text); color: #fff; border-color: transparent; box-shadow: 0 0 18px rgba(249, 62, 255, 0.6); }
+.round.torch.on { background: #fff; color: #1a1124; box-shadow: 0 0 18px rgba(255, 255, 255, 0.6); }
+.stick.off { opacity: 0.3; pointer-events: none; }
+/* Watching page: controls greyed out */
+.off-pilot { opacity: 0.35; pointer-events: none; }
+.sheet h3 { margin: 14px 0 8px; font-size: 0.78em; font-weight: 400; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; }
+.ctl { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 2px; }
+.ctl input[type=range] { width: 160px; accent-color: var(--primary); }
+/* Row with several controls: the slider shrinks */
+.ctl .group { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ctl .group input[type=range] { flex: 0 1 160px; min-width: 60px; margin: 0; }
+.ctl .v { color: var(--muted); display: inline-block; width: 4.5em; text-align: right; font-variant-numeric: tabular-nums; }
+/* Ring colour: a hue slider */
+#s-ring { -webkit-appearance: none; appearance: none; height: 14px; border-radius: 999px; margin: 15px 0;
+  background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+#s-ring::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--ring, #b605fc); border: 3px solid #fff; box-shadow: 0 0 6px rgba(0, 0, 0, 0.5); }
+#s-ring::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%;
+  background: var(--ring, #b605fc); border: 3px solid #fff; box-shadow: 0 0 6px rgba(0, 0, 0, 0.5); }
+.round.rec.on .rec-dot { background: #fff; border-radius: 4px; }
+
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
+.seg button { border: none; background: transparent; min-height: 44px; padding: 5px 14px; border-radius: 999px; cursor: pointer; color: var(--muted); }
+.seg button.active { background: var(--primary); color: #fff; }
+
+/* ---------- Stage: video + two control columns ---------- */
+.stage { height: calc(100dvh - 64px); display: grid; gap: 12px; padding: 0 14px 14px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "left video right"; }
+#side-l { grid-area: left; } #side-r { grid-area: right; }
+.side { display: flex; flex-direction: column; justify-content: space-between; align-items: center; gap: 12px; }
+.side .buttons { display: flex; flex-direction: column; gap: 12px; }
+.stick-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.lbl { font-size: 0.72em; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+.stick { width: var(--stick); height: var(--stick); border-radius: 50%; position: relative; touch-action: none;
+  background: radial-gradient(circle, var(--surface-2) 0%, var(--surface) 70%); border: 1px solid var(--line); }
+.knob { position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; transform: translate(-50%, -50%);
+  border-radius: 50%; background: var(--grad); box-shadow: 0 0 18px rgba(249, 62, 255, 0.45); pointer-events: none; }
+
+.video { grid-area: video; position: relative; border-radius: var(--radius); overflow: hidden; min-height: 0;
+  background: #000 linear-gradient(160deg, #1d1029, #07040b); border: 1px solid var(--line); }
+.video img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.video .off { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+.rec-badge { position: absolute; top: 12px; right: 12px; padding: 5px 11px; border-radius: 999px;
+  background: var(--glass); backdrop-filter: blur(8px); font-size: 0.85em; display: none; align-items: center; gap: 6px; }
+.rec-badge.on { display: inline-flex; }
+.rec-badge::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); animation: blink 1s steps(2) infinite; }
+.pill { position: absolute; right: 12px; bottom: 12px; min-height: 44px; padding: 9px 18px; border-radius: 999px; border: none; cursor: pointer;
+  background: var(--grad-text); color: #fff; box-shadow: 0 6px 18px rgba(148, 20, 223, 0.45); touch-action: manipulation; }
+.pill:active { transform: scale(0.97); }
+/* Speed and height: fixed columns */
+.quick { grid-area: video; align-self: end; justify-self: start; margin: 12px; z-index: 1; max-width: calc(100% - 174px);
+  display: grid; gap: 0; padding: 0 12px; border-radius: 16px;
+  background: var(--glass); backdrop-filter: blur(8px); border: 1px solid var(--line); }
+.q { display: grid; grid-template-columns: 4.6em minmax(56px, 130px) 4.2em; align-items: center; gap: 8px; }
+.q input[type=range] { width: 100%; margin: 0; accent-color: var(--primary); touch-action: manipulation; }
+.q .v { font-size: 0.85em; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill.awake { background: var(--glass); border: 1px solid var(--line); box-shadow: none; backdrop-filter: blur(8px); }
+.pill:disabled { opacity: 0.4; box-shadow: none; }
+.diag { position: absolute; top: 12px; left: 12px; display: grid; grid-template-columns: auto auto; gap: 2px 12px;
+  padding: 8px 12px; border-radius: 14px; background: var(--glass); backdrop-filter: blur(8px); border: 1px solid var(--line);
+  font-size: 0.78em; font-variant-numeric: tabular-nums; pointer-events: none; max-width: calc(100% - 110px); }
+.diag span { color: var(--muted); }
+.diag b { font-weight: 400; }
+.toast { position: absolute; top: 12px; left: 50%; transform: translate(-50%, -8px); max-width: 70%; padding: 8px 14px;
+  border-radius: 14px; background: var(--glass); backdrop-filter: blur(8px); font-size: 0.9em; text-align: center;
+  opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Sheets, panels, modals ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 10; }
+.scrim.show { opacity: 1; pointer-events: auto; }
+.sheet { position: fixed; left: 50%; bottom: 0; width: min(640px, 100%); transform: translate(-50%, 105%);
+  background: var(--surface); border: 1px solid var(--line); border-bottom: none; border-radius: 28px 28px 0 0;
+  padding: 10px 18px max(20px, env(safe-area-inset-bottom)); transition: transform 0.25s ease; z-index: 11; }
+.sheet.show { transform: translate(-50%, 0); }
+.sheet .grab { width: 44px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 10px; }
+.head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.head h2 { margin: 0; font-size: 1.15em; font-weight: 400; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 14px 6px;
+  border-radius: 18px; background: var(--surface-2); border: 1px solid var(--line); cursor: pointer; text-decoration: none; color: inherit; }
+.tile .emoji { font-size: 1.9em; line-height: 1; }
+.tile:active { transform: scale(0.96); }
+.tile:disabled { opacity: 0.35; cursor: default; }
+.hint { color: var(--muted); font-size: 0.85em; margin: 10px 2px 0; min-height: 1.2em; }
+
+.panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%); background: var(--surface);
+  border-left: 1px solid var(--line); transform: translateX(105%); transition: transform 0.25s ease; z-index: 11;
+  padding: max(16px, env(safe-area-inset-top)) 18px 18px; overflow-y: auto; }
+.panel.show { transform: none; }
+.panel h3 { margin: 22px 0 8px; font-size: 0.78em; font-weight: 400; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; }
+.rows { border-radius: 18px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 14px;
+  border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; }
+.row:last-child { border-bottom: none; }
+.row .v { color: var(--muted); text-align: right; }
+a.row { cursor: pointer; }
+.row.soon { opacity: 0.45; }
+button.row { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--line); font: inherit; text-align: left; cursor: pointer; }
+button.row:disabled { opacity: 0.45; cursor: default; }
+.log { white-space: pre-wrap; max-height: 30vh; overflow-y: auto; font-size: 0.75em; }
+.row input[type=range] { width: 150px; accent-color: var(--primary); }
+.feet { display: inline-flex; gap: 5px; }
+.feet i { width: 10px; height: 10px; border-radius: 50%; background: #7d6c95; }
+.feet i.on { background: var(--ok); }
+
+.media { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.media button { padding: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; aspect-ratio: 4 / 3;
+  background: var(--surface-2); cursor: pointer; }
+.media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.media .tile { aspect-ratio: 4 / 3; padding: 8px; font-size: 0.75em; text-align: center; word-break: break-all; }
+.empty-note { color: var(--muted); }
+
+.modal { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0.96); width: min(360px, 90%);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 26px; padding: 22px; z-index: 12;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; text-align: center; }
+.modal.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+.modal p { color: var(--muted); margin: 6px 0 18px; }
+/* Motherboard top view [mm]: the servo connector of an assembly step */
+.board { width: 100%; margin: -6px 0 14px; font: 2.4px sans-serif; fill: var(--muted); }
+.board rect { fill: none; stroke: var(--line); stroke-width: 0.4; }
+.board .pcb { fill: var(--surface-2); }
+.board .conn rect { stroke: var(--muted); }
+.board .conn.on rect { fill: var(--pink); stroke: var(--pink); }
+.board .conn.on text { fill: var(--pink); font-weight: 700; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; border-radius: 16px;
+  border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; color: inherit; text-decoration: none; }
+.btn.danger { background: var(--bad-fill); border-color: transparent; color: #fff; }
+.btn.ghost { background: none; color: var(--muted); }
+.btn.dev { background: #2ad4c4; border-color: transparent; color: var(--bg); }
+.btn.small { padding: 6px 14px; min-height: 36px; }
+.row .group { display: flex; align-items: center; gap: 10px; }
+.viewer { position: fixed; inset: 0; z-index: 13; background: rgba(0, 0, 0, 0.92); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.viewer.show { opacity: 1; pointer-events: auto; }
+.viewer img { max-width: 100%; max-height: calc(100% - 80px); border-radius: 16px; }
+.viewer .row-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.viewer p { color: #fff; margin: 0; }
+.gate { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); z-index: 19; padding: 24px; }
+.gate form { width: min(340px, 100%); display: flex; flex-direction: column; gap: 12px; text-align: center; }
+.gate h2 { font-weight: 400; margin: 6px 0 0; }
+.gate p { color: var(--muted); margin: 0; }
+.gate input { min-height: 44px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--text); font: inherit; font-size: 1.1em; text-align: center; letter-spacing: 2px; -webkit-user-select: text; user-select: text; }
+.gate .error { color: var(--bad); min-height: 1.2em; }
+.goodbye { position: fixed; inset: 0; display: none; place-items: center; text-align: center; background: var(--bg); z-index: 20; padding: 24px; }
+.goodbye.show { display: grid; }
+
+/* ---------- Portrait phone ---------- */
+@media (orientation: portrait) {
+  :root { --stick: min(150px, 40vw); }
+  .side .buttons .round { --round: min(52px, 12.5vw); }
+  .top { flex-wrap: wrap; }
+  #b-power { order: 0; } .brand { order: 1; flex: 1; justify-content: center; } #b-settings { order: 2; }
+  .brand img { width: 48px; height: 48px; } .brand span { display: none; }
+  .chips { order: 3; flex-basis: 100%; }
+  .stage { height: auto; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-content: start; row-gap: 20px;
+    grid-template-rows: auto auto auto; grid-template-areas: "video video" "quick quick" "left right"; }
+  .quick { grid-area: quick; margin: 0; justify-self: stretch; max-width: none; padding: 2px 14px; gap: 0;
+    background: var(--surface); backdrop-filter: none; }
+  .q { grid-template-columns: 4.6em minmax(0, 1fr) 4.2em; }
+  body { overflow-y: auto; }
+  .video { aspect-ratio: 4 / 3; }
+  .side { justify-content: flex-start; gap: 20px; }
+  .side .buttons { flex-direction: row; gap: 8px; }
+  .stick-wrap { flex-direction: column-reverse; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  :root { --stick: min(130px, 34vh); --round: 46px; }
+  .top { padding-top: 6px; padding-bottom: 6px; }
+  .stage { height: calc(100dvh - 52px); }
+  .side .buttons { gap: 8px; }
+  .chip { padding: 4px 10px; }
+}
+</style>
+</head>
+<body>
+<!-- Icons: Feather (feathericons.com, MIT license) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></symbol>
+  <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24"><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="13" x2="23" y2="11"/></symbol>
+  <symbol id="i-thermo" viewBox="0 0 24 24"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></symbol>
+  <symbol id="i-bluetooth" viewBox="0 0 24 24"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+  <symbol id="i-restart" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="brand"><img src="/static/logo.png" alt="Chromapi"><span>Chromapi</span></div>
+  <div class="chips">
+    <button class="chip chip-btn" id="chip-batt" title="Battery">
+      <svg class="i" viewBox="0 0 24 24"><use href="#i-battery"/><rect id="batt-fill" x="3" y="8" width="0" height="8" rx="1" fill="currentColor" stroke="none"/></svg>
+      <span id="batt">--</span></button>
+    <span class="chip" id="chip-temp" title="Raspberry Pi temperature"><svg class="i"><use href="#i-thermo"/></svg><span id="temp">--</span></span>
+    <span class="chip" id="chip-link"><i class="dot"></i><svg class="i"><use href="#i-bluetooth"/></svg><span id="link">Offline</span></span>
+    <span class="chip" id="chip-role" hidden title="Another page drives the robot: you see the camera and its state">Watching</span>
+    <span class="chip" id="chip-viewers" hidden title="The camera is on: people watching it"><svg class="i"><use href="#i-eye"/></svg><span id="viewers">0</span></span>
+  </div>
+  <button class="round small" id="b-settings" aria-label="Settings"><svg class="i"><use href="#i-gear"/></svg></button>
+  <button class="round small danger" id="b-power" aria-label="Power"><svg class="i"><use href="#i-power"/></svg></button>
+</header>
+
+<main class="stage">
+  <div class="side" id="side-l">
+    <div class="buttons">
+      <button class="round" id="b-photo" aria-label="Take a photo"><svg class="i"><use href="#i-camera"/></svg></button>
+      <button class="round rec" id="b-rec" aria-label="Record a video"><span class="rec-dot"></span></button>
+      <button class="round torch" id="b-torch" aria-label="Flash light"><svg class="i"><use href="#i-zap"/></svg></button>
+    </div>
+    <div class="stick-wrap"><span class="lbl" id="lbl-l">Walk</span><div class="stick" id="stick-l"><div class="knob"></div></div></div>
+  </div>
+
+  <div class="video">
+    <img id="cam" alt="Chromapi's camera">
+    <div class="off" id="cam-off" hidden>No camera</div>
+    <div class="diag" id="diag" hidden>
+      <span>Link</span><b id="o-link">--</b>
+      <span>Battery</span><b id="o-batt">--</b>
+      <span>Servos</span><b id="o-servos">--</b>
+      <span>Hottest</span><b id="o-stemp">--</b>
+      <span>Pi</span><b id="o-cpu">--</b>
+      <span>Tilt</span><b id="o-tilt">--</b>
+      <span>Feet</span><b class="feet"><i id="o-f-tl"></i><i id="o-f-tr"></i><i id="o-f-bl"></i><i id="o-f-br"></i></b>
+    </div>
+    <div class="rec-badge" id="rec-badge">REC</div>
+    <div class="toast" id="toast"></div>
+    <div class="talkie" aria-label="Talkie-walkie">
+      <button class="round small" id="b-mic" title="Hold to talk through Chromapi" aria-label="Hold to talk through Chromapi"><svg class="i"><use href="#i-mic"/></svg></button>
+      <button class="round small" id="b-listen" title="Listen around Chromapi (its ring shows it)" aria-label="Listen through Chromapi" aria-pressed="false"><svg class="i"><use href="#i-headphones"/></svg></button>
+    </div>
+    <button class="pill" id="b-awake">Wake up</button>
+  </div>
+  <div class="quick">
+    <label class="q"><span class="lbl">Speed</span><input type="range" id="s-speed" min="0.25" max="1" step="0.05" value="1"><span id="s-speed-v" class="v">100%</span></label>
+    <label class="q"><span class="lbl">Height</span><input type="range" id="s-height" min="-40" max="20" step="2" value="0"><span id="s-height-v" class="v">+0 mm</span></label>
+  </div>
+
+  <div class="side" id="side-r">
+    <div class="buttons">
+      <button class="round" id="b-emotes" aria-label="Emotes"><svg class="i"><use href="#i-smile"/></svg></button>
+      <button class="round" id="b-menu" aria-label="Menu"><svg class="i"><use href="#i-menu"/></svg></button>
+    </div>
+    <div class="stick-wrap"><span class="lbl" id="lbl-r">Turn</span><div class="stick" id="stick-r"><div class="knob"></div></div></div>
+  </div>
+
+</main>
+
+<div class="scrim" id="scrim"></div>
+
+<section class="sheet" id="sheet-emotes" aria-label="Emotes">
+  <div class="grab"></div>
+  <div class="head"><h2>Emotes</h2>
+    <button class="round small" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></div>
+  <h3>Moves</h3>
+  <div class="grid">
+    <button class="tile" data-emote="greet"><span class="emoji">👋</span>Greet</button>
+    <button class="tile" data-emote="kick_left"><span class="emoji">🦵</span>Kick left</button>
+    <button class="tile" data-emote="kick_right"><span class="emoji">🦵</span>Kick right</button>
+  </div>
+  <p class="hint" id="emote-hint"></p>
+  <h3>Moods</h3>
+  <div class="grid" id="moods" style="max-height: 40vh; overflow-y: auto"></div>
+</section>
+
+<section class="sheet" id="sheet-menu" aria-label="Menu">
+  <div class="grab"></div>
+  <div class="head"><h2>Menu</h2>
+    <button class="round small" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></div>
+  <div class="ctl">Mode <span class="seg"><button data-mode="turn">Turn</button><button data-mode="lean">Lean</button></span></div>
+  <div class="ctl">Diagnostics on the video <span class="seg"><button id="b-diag">Show</button></span></div>
+  <div class="ctl">Gait <span class="seg"><button data-gait="trot">Trot</button><button data-gait="crawl">Crawl</button></span></div>
+  <label class="ctl" id="ring-row">Ring <span class="group"><span class="seg"><button id="b-ring-idle">Idle</button><button id="b-ring-rainbow">Rainbow</button></span> <input type="range" id="s-ring" min="0" max="359" step="1" value="283" aria-label="Ring colour (hue)"></span></label>
+  <label class="ctl" id="fan-row" hidden>Fan <span class="group"><span class="seg"><button id="b-fan-auto">Auto</button></span> <input type="range" id="s-fan" min="0" max="100" step="5" value="100"> <span id="s-fan-v" class="v">100%</span></span></label>
+  <div class="stack" style="margin-top: 8px"><button class="btn" id="b-gallery"><svg class="i"><use href="#i-image"/></svg>Gallery</button></div>
+</section>
+
+<section class="panel" id="panel-gallery" aria-label="Gallery">
+  <div class="head"><h2>Gallery</h2>
+    <button class="round small" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></div>
+  <h3>Photos</h3><div class="media" id="g-photos"></div>
+  <h3>Videos</h3><div class="media" id="g-videos"></div>
+</section>
+
+<section class="panel" id="panel-settings" aria-label="Settings">
+  <div class="head"><h2>Settings</h2>
+    <button class="round small" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></div>
+
+  <h3>Maintenance</h3>
+  <div class="rows">
+    <a class="row" href="/report" download>Support report <svg class="i"><use href="#i-download"/></svg></a>
+    <button class="row" data-maint="update_firmware">Update the firmware <span class="v" id="m-update_firmware"></span></button>
+    <button class="row" data-maint="calibrate_servos">Calibrate the servos <span class="v" id="m-calibrate_servos"></span></button>
+    <button class="row" data-maint="calibrate_imu">Calibrate the IMU <span class="v" id="m-calibrate_imu"></span></button>
+    <button class="row" data-maint="assembly">Set up new servos <span class="v" id="m-assembly"></span></button>
+  </div>
+  <p class="hint" id="maint-hint"></p>
+  <button class="btn danger" id="maint-cancel" hidden>Cancel</button>
+  <pre class="hint log" id="maint-log" hidden></pre>
+
+  <h3>Controller</h3>
+  <div class="rows">
+    <div class="row">Gamepad <span class="v" id="d-gamepad">--</span></div>
+    <div class="row">Lean with the controller's tilt <span class="seg"><button id="b-pad-tilt">Off</button></span></div>
+    <button class="row" data-maint="pair_gamepad">Pair a controller <span class="v" id="m-pair_gamepad"></span></button>
+  </div>
+
+  <h3>Access</h3>
+  <div class="rows">
+    <button class="row" id="b-change-code">Change the access code <span class="v">signs out other devices</span></button>
+  </div>
+
+  <h3>Diagnostics</h3>
+  <div class="rows">
+    <div class="row">Motherboard <span class="v" id="d-link">--</span></div>
+    <div class="row">Battery <span class="v" id="d-batt">--</span></div>
+    <div class="row">Servos <span class="v" id="d-servos">--</span></div>
+    <div class="row">Hottest servo <span class="v" id="d-stemp">--</span></div>
+    <div class="row">Raspberry Pi <span class="v" id="d-cpu">--</span></div>
+    <div class="row">Tilt <span class="v" id="d-tilt">--</span></div>
+    <div class="row">Feet on the ground <span class="feet"><i id="f-tl"></i><i id="f-tr"></i><i id="f-bl"></i><i id="f-br"></i></span></div>
+  </div>
+
+  <h3>About</h3>
+  <div class="rows">
+    <div class="row">Name <span class="group"><span class="v" id="v-host">--</span><button class="btn small" id="b-identify">Identify</button></span></div>
+    <div class="row">SDK <span class="v" id="v-sdk">--</span></div>
+    <div class="row">Firmware <span class="v" id="v-fw">--</span></div>
+  </div>
+</section>
+
+<div class="modal" id="modal-maint" role="dialog" aria-label="Maintenance">
+  <h2 style="margin:0;font-weight:400" id="maint-title"></h2>
+  <p id="maint-text"></p>
+  <svg class="board" id="maint-board" viewBox="102 68.5 87 59" hidden aria-hidden="true">
+    <rect class="pcb" x="103" y="69.46" width="85" height="57" rx="4"/>
+    <rect x="114.4" y="74.3" width="50.8" height="5.1"/><text x="139.8" y="83.4" text-anchor="middle">Raspberry Pi header</text>
+    <rect x="177.9" y="120" width="7.2" height="6"/><text x="181.5" y="118.6" text-anchor="middle">USB-C</text>
+    <g class="conn" data-conn="tr"><rect x="127.8" y="112.1" width="9.9" height="4.9"/><text x="132.8" y="110.9" text-anchor="middle">TopRight</text></g>
+    <g class="conn" data-conn="br"><rect x="138.8" y="112.1" width="9.9" height="4.9"/><text x="143.8" y="110.9" text-anchor="middle">BotRight</text></g>
+    <g class="conn" data-conn="tl"><rect x="127.8" y="118.1" width="9.9" height="4.9"/><text x="132.8" y="125.6" text-anchor="middle">TopLeft</text></g>
+    <g class="conn" data-conn="bl"><rect x="138.8" y="118.1" width="9.9" height="4.9"/><text x="143.8" y="125.6" text-anchor="middle">BotLeft</text></g>
+  </svg>
+  <div class="stack">
+    <button class="btn" id="maint-go">Start</button>
+    <button class="btn ghost" data-close>Cancel</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-run" role="dialog" aria-label="Maintenance running">
+  <h2 style="margin:0;font-weight:400" id="run-title"></h2>
+  <p id="run-text"></p>
+  <div class="stack">
+    <button class="btn danger" id="run-cancel">Cancel</button>
+    <button class="btn ghost" data-close data-autofocus>Hide</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-power" role="dialog" aria-label="Power">
+  <h2 style="margin:0;font-weight:400">Power</h2>
+  <p>Chromapi lies down first.</p>
+  <div class="stack">
+    <button class="btn" data-confirm="reboot"><svg class="i"><use href="#i-restart"/></svg>Restart</button>
+    <button class="btn danger" data-confirm="shutdown"><svg class="i"><use href="#i-power"/></svg>Power off</button>
+    <button class="btn dev" id="b-dev">Developer mode</button>
+    <button class="btn ghost" data-close data-autofocus>Cancel</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-confirm" role="dialog" aria-labelledby="confirm-title">
+  <h2 style="margin:0;font-weight:400" id="confirm-title"></h2>
+  <p id="confirm-text"></p>
+  <div class="stack">
+    <button class="btn danger" id="confirm-go" data-power=""></button>
+    <button class="btn ghost" data-close data-autofocus>Cancel</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-dev" role="dialog" aria-label="Developer mode">
+  <h2 style="margin:0;font-weight:400">Developer mode</h2>
+  <p>Chromapi lies down and the app stops, until it is switched off and on again. This page will no longer
+    answer: you can control Chromapi over SSH.</p>
+  <p style="color:var(--muted)">To restart the app without switching off, use: <code>sudo systemctl start chromapi@$USER</code></p>
+  <div class="stack">
+    <button class="btn danger" data-power="quit">Stop the app</button>
+    <button class="btn ghost" data-close data-autofocus>Cancel</button>
+  </div>
+</div>
+
+<div class="viewer" id="viewer">
+  <img id="viewer-img" alt="">
+  <p id="viewer-name"></p>
+  <div class="row-btns">
+    <button class="btn" id="viewer-dl"><svg class="i"><use href="#i-download"/></svg>Save</button>
+    <button class="btn danger" id="viewer-del"><svg class="i"><use href="#i-trash"/></svg>Delete</button>
+    <button class="btn ghost" id="viewer-close">Close</button>
+  </div>
+</div>
+
+<div class="gate" id="gate" hidden>
+  <form id="gate-form" novalidate>
+    <img src="/static/logo.png" alt="" width="72" style="align-self:center">
+    <h2 id="gate-title">Access code</h2>
+    <p id="gate-text"></p>
+    <input type="password" id="gate-current" aria-label="Current access code" placeholder="Current code" autocomplete="current-password">
+    <input type="password" id="gate-code" aria-label="Access code" autocomplete="current-password">
+    <input type="password" id="gate-confirm" aria-label="Access code, again" placeholder="Again" autocomplete="new-password">
+    <button class="btn" type="submit" id="gate-go">Continue</button>
+    <button class="btn ghost" type="button" id="gate-cancel">Cancel</button>
+    <p class="error" id="gate-error" role="alert"></p>
+  </form>
+</div>
+
+<div class="goodbye" id="goodbye"><div><img src="/static/logo.png" alt="" width="72"><h2 style="font-weight:400" id="goodbye-text">Powering off…</h2>
+  <p style="color:var(--muted)" id="goodbye-hint">You can close this page.</p></div></div>
+
+<script>
+const socket = io({autoConnect: false});  // connected by checkAccess
+const $ = id => document.getElementById(id);
+const axes = {lx: 0, ly: 0, rx: 0, ry: 0};
+let state = {}, lastStatus = '', updateToasted = false;
+
+// ---------- Overlays (one open at a time) ----------
+// Closed overlays stay in the DOM: inert keeps the focus out
+let open = null, opener = null;
+const OVERLAYS = '.sheet, .panel, .modal, .viewer';
+document.querySelectorAll(OVERLAYS).forEach(el => { el.inert = true; });
+function show(el) {
+  hide(); open = el; opener = document.activeElement;
+  el.inert = false; el.classList.add('show'); $('scrim').classList.add('show');
+  const first = el.querySelector('[data-autofocus]') || el.querySelector('button:not([disabled]):not([hidden]), a[href], input');
+  if (first) first.focus({preventScroll: true});
+}
+function hide() {
+  if (open) { open.classList.remove('show'); open.inert = true; }
+  open = null; $('scrim').classList.remove('show');
+  if (opener && document.contains(opener)) opener.focus({preventScroll: true});
+  opener = null;
+}
+const showViewer = on => { $('viewer').classList.toggle('show', on); $('viewer').inert = !on; };
+$('scrim').addEventListener('click', hide);
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', hide));
+$('b-emotes').addEventListener('click', () => show($('sheet-emotes')));
+$('b-settings').addEventListener('click', () => show($('panel-settings')));
+$('b-power').addEventListener('click', () => show($('modal-power')));
+$('b-dev').addEventListener('click', () => show($('modal-dev')));
+$('b-identify').addEventListener('click', () => action('identify'));
+// Restart and Power off ask again: [title, text, button]
+const CONFIRM = {
+  reboot: ['Restart?', 'Chromapi lies down, then restarts. This page reconnects in about a minute.', 'Restart'],
+  shutdown: ['Power off?', 'Chromapi lies down, then switches off. To use it again, switch it on at its power switch.', 'Power off'],
+};
+document.querySelectorAll('[data-confirm]').forEach(b => b.addEventListener('click', () => {
+  const [title, text, go] = CONFIRM[b.dataset.confirm];
+  $('confirm-title').textContent = title; $('confirm-text').textContent = text;
+  $('confirm-go').textContent = go; $('confirm-go').dataset.power = b.dataset.confirm;
+  show($('modal-confirm'));
+}));
+$('b-menu').addEventListener('click', () => show($('sheet-menu')));
+$('b-gallery').addEventListener('click', () => { loadGallery(); show($('panel-gallery')); });
+
+let toastTimer = null;
+function toast(text) {
+  $('toast').textContent = text; $('toast').classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('show'), 3000);
+}
+
+// ---------- Joysticks (pointer events: touch and mouse) ----------
+function makeStick(el, kx, ky) {
+  const knob = el.querySelector('.knob');
+  let pid = null;
+  function update(e) {
+    const r = el.getBoundingClientRect(), R = r.width / 2;
+    let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+    const d = Math.hypot(dx, dy);
+    if (d > R) { dx *= R / d; dy *= R / d; }
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    axes[kx] = dx / R;
+    if (ky) axes[ky] = -dy / R;  // y up-positive
+  }
+  function reset() { pid = null; knob.style.transform = ''; axes[kx] = 0; if (ky) axes[ky] = 0; }
+  el.addEventListener('pointerdown', e => { pid = e.pointerId; el.setPointerCapture(pid); update(e); });
+  el.addEventListener('pointermove', e => { if (e.pointerId === pid) update(e); });
+  el.addEventListener('pointerup', e => { if (e.pointerId === pid) reset(); });
+  el.addEventListener('pointercancel', e => { if (e.pointerId === pid) reset(); });
+}
+makeStick($('stick-l'), 'lx', 'ly');
+makeStick($('stick-r'), 'rx', 'ry');
+
+// Keyboard: WASD (physical keys) to walk, arrows to turn or lean, Enter to wake up
+const keys = new Set();
+const KEYMAP = {KeyW: ['ly', 1], KeyS: ['ly', -1], KeyA: ['lx', -1], KeyD: ['lx', 1],
+  ArrowLeft: ['rx', -1], ArrowRight: ['rx', 1], ArrowUp: ['ry', 1], ArrowDown: ['ry', -1]};
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Escape') { hide(); showViewer(false); return; }
+  if (e.code === 'Enter' && !e.repeat && !open && document.activeElement === document.body) {
+    $('b-awake').click(); e.preventDefault(); return;
+  }
+  if (KEYMAP[e.code]) { keys.add(e.code); e.preventDefault(); }
+});
+document.addEventListener('keyup', e => keys.delete(e.code));
+window.addEventListener('blur', () => keys.clear());
+
+// Sticks at 20 Hz, also the deadman heartbeat
+setInterval(() => {
+  if (!socket.connected || !pilot) return;
+  const out = {...axes};
+  keys.forEach(c => { const [a, v] = KEYMAP[c]; out[a] = Math.max(-1, Math.min(1, out[a] + v)); });
+  socket.volatile.emit('axes', out);
+}, 50);
+
+// ---------- Actions ----------
+const action = name => socket.emit('action', {name});
+$('b-awake').addEventListener('click', () => action(state.awake ? 'rest' : 'wake'));
+document.querySelectorAll('[data-gait]').forEach(b => b.addEventListener('click', () => action(b.dataset.gait)));
+document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => action(b.dataset.mode)));
+$('b-torch').addEventListener('click', () => socket.emit('set_torch', {on: !state.torch}));
+$('chip-batt').addEventListener('click', () => action('show_battery'));
+let fanBusy = 0;
+$('s-fan').addEventListener('input', e => {
+  fanBusy = Date.now() + 1500;
+  $('s-fan-v').textContent = e.target.value + '%';
+  socket.emit('set_fan', {percent: +e.target.value});
+});
+$('b-fan-auto').addEventListener('click', e => {
+  e.preventDefault();  // inside the label: do not focus the slider
+  socket.emit('set_fan', {auto: true});
+});
+// Ring colour, sent live
+const RING_IDLE = '#b605fc';
+let ringBusy = 0;
+const hueRgb = h => [0, 8, 4].map(n => { const k = (n + h / 30) % 12; return Math.round(255 * (1 - Math.max(0, Math.min(k - 3, 9 - k, 1)))); });
+const rgbHue = hex => {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)), mx = Math.max(r, g, b), d = mx - Math.min(r, g, b);
+  if (!d) return 0;
+  const h = mx === r ? (g - b) / d : mx === g ? 2 + (b - r) / d : 4 + (r - g) / d;
+  return Math.round((h * 60 + 360) % 360);
+};
+const showRing = hex => {
+  $('s-ring').style.setProperty('--ring', hex === 'rainbow' ? 'conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)' : hex);
+  $('b-ring-idle').classList.toggle('active', hex === RING_IDLE);
+  $('b-ring-rainbow').classList.toggle('active', hex === 'rainbow');
+};
+$('s-ring').addEventListener('input', e => {
+  ringBusy = Date.now() + 1500;
+  const rgb = hueRgb(+e.target.value);
+  showRing('#' + rgb.map(c => c.toString(16).padStart(2, '0')).join(''));
+  socket.emit('set_ring_color', {rgb});
+});
+$('b-ring-idle').addEventListener('click', e => {
+  e.preventDefault();  // inside the label: do not focus the slider
+  ringBusy = 0;
+  socket.emit('set_ring_color', {});
+});
+$('b-ring-rainbow').addEventListener('click', e => {
+  e.preventDefault();
+  ringBusy = 0;
+  socket.emit('set_ring_color', {rainbow: true});
+});
+// New servos (ID 1): one job per servo, highest ID first
+const servoSteps = [];  // the setup_servo_<id> jobs, in order
+let servoNext = 0;
+const LEGS = {tl: 'front left', tr: 'front right', bl: 'back left', br: 'back right'}, PARTS = {1: 'coxa', 2: 'femur', 3: 'tibia'};
+// Servo connector of each leg on the motherboard
+const CONNS = {tl: 'TopLeft', tr: 'TopRight', bl: 'BotLeft', br: 'BotRight'};
+const servoLeg = {};  // job -> leg
+const loadServos = () => fetch('/servos').then(r => r.json()).then(d => d.servos.forEach((sv, k) => {
+  const [leg, part] = sv.joint.split('_'), job = 'setup_servo_' + sv.id, conn = CONNS[leg] || leg;
+  const newLeg = k > 0 && !d.servos[k - 1].joint.startsWith(leg + '_');
+  MAINT[job] = [`Servo ${k + 1}/${d.servos.length}: ${LEGS[leg] || leg} ${PARTS[part] || part} (ID ${sv.id})`,
+    (k === 0 ? `Chromapi off, plug only this new servo into the ${conn} connector, switch on, then start.`
+      : newLeg ? `New leg: plug this new servo into the ${conn} connector, keeping the other legs' servos plugged in, then start.`
+      : `Add this new servo to the chain on the ${conn} connector, keeping the ones already set up plugged in, then start.`)
+    + ' One new servo at a time: two would end up with the same ID.'];
+  servoLeg[job] = leg;
+  servoSteps.push(job);
+}));
+const loadMoods = () => fetch('/moods').then(r => r.json()).then(d => d.moods.forEach(m => {
+  const b = document.createElement('button');
+  b.className = 'tile'; b.innerHTML = `<span class="emoji">${m.emoji}</span>${m.name}`;
+  b.addEventListener('click', () => { action('mood:' + m.name); hide(); });
+  $('moods').appendChild(b);
+}));
+document.querySelectorAll('[data-emote]').forEach(b => b.addEventListener('click', () => { action(b.dataset.emote); hide(); }));
+const goodbye = power => {
+  hide();
+  $('goodbye-text').textContent = {reboot: 'Restarting…', shutdown: 'Powering off…', quit: 'Developer mode'}[power];
+  if (power === 'quit') {
+    $('goodbye-hint').textContent = 'The app is stopped until Chromapi restarts: its serial port is free for SSH. '
+      + 'To start it again, use: sudo systemctl start chromapi@$USER';
+  }
+  $('goodbye').classList.add('show');
+};
+document.querySelectorAll('[data-power]').forEach(b => b.addEventListener('click', () => {
+  action(b.dataset.power);
+  goodbye(b.dataset.power);
+}));
+socket.on('goodbye', goodbye);
+const MAINT = {
+  update_firmware: ['Update the firmware', 'Installs the firmware shipped with this app. The servos go limp: keep the robot lying down and switched on until it is done.'],
+  calibrate_servos: ['Calibrate the servos', 'Lift the robot so that no leg can touch anything: each joint sweeps its whole range, up to its mechanical stops. It takes a few minutes.'],
+  calibrate_imu: ['Calibrate the IMU', 'Put the robot on a level floor and do not touch it for 5 seconds.'],
+  pair_gamepad: ['Pair a controller', 'Hold the controller\'s pair button until its light flashes fast, then start. Once paired, it reconnects on its own.'],
+};
+let maintJob = null;
+$('run-cancel').addEventListener('click', () => action('maintenance_cancel'));
+$('maint-cancel').addEventListener('click', () => action('maintenance_cancel'));
+// The running job's bubble, with Cancel; it closes when the job ends
+let runShown = null;  // the job whose bubble was shown
+const showRun = job => {
+  runShown = job;
+  $('run-title').textContent = (MAINT[job] || [job])[0];
+  $('run-text').textContent = job === 'update_firmware' ? 'Running… do not switch the robot off.' : 'Running…';
+  $('run-cancel').hidden = job === 'update_firmware';
+  show($('modal-run'));
+};
+const showDiag = on => {
+  $('diag').hidden = !on; $('b-diag').classList.toggle('active', on); $('b-diag').textContent = on ? 'Shown' : 'Show';
+  try { localStorage.setItem('diag', on ? '1' : ''); } catch (e) {}
+};
+try { showDiag(!!localStorage.getItem('diag')); } catch (e) { showDiag(false); }
+$('b-diag').addEventListener('click', () => showDiag($('diag').hidden));
+$('b-pad-tilt').addEventListener('click', () => socket.emit('set_pad_tilt', {on: !$('b-pad-tilt').classList.contains('active')}));
+const openMaint = (job, go = 'Start', note = '') => {
+  maintJob = job;
+  $('maint-title').textContent = MAINT[job][0];
+  $('maint-text').textContent = (note ? note + ' ' : '') + MAINT[job][1];
+  $('maint-go').textContent = go;
+  $('maint-board').toggleAttribute('hidden', !servoLeg[job]);
+  document.querySelectorAll('[data-conn]').forEach(g => g.classList.toggle('on', g.dataset.conn === servoLeg[job]));
+  show($('modal-maint'));
+};
+document.querySelectorAll('[data-maint]').forEach(b => b.addEventListener('click', () => {
+  const job = b.dataset.maint === 'assembly' ? servoSteps[servoNext] : b.dataset.maint;
+  if (job) openMaint(job);
+}));
+$('maint-go').addEventListener('click', () => { action(maintJob); hide(); });
+let heightBusy = 0;
+const mm = v => (v > 0 ? '+' : '') + v + ' mm';
+$('s-height').addEventListener('input', e => {
+  heightBusy = Date.now() + 1500;
+  $('s-height-v').textContent = mm(+e.target.value);
+  socket.emit('set_height', {mm: +e.target.value});
+});
+let speedBusy = 0;
+$('s-speed').addEventListener('input', e => {
+  speedBusy = Date.now() + 1500;
+  $('s-speed-v').textContent = Math.round(e.target.value * 100) + '%';
+  socket.emit('set_speed', {value: +e.target.value});
+});
+$('b-rec').addEventListener('click', () => socket.emit('camera_record', {on: !(state.cam_rec && state.cam_rec.on)}));
+$('b-photo').addEventListener('click', async () => {
+  const reply = await fetch('/photo');
+  toast(reply.ok ? 'Photo saved to the gallery' : 'No camera image yet');
+});
+
+// ---------- Gallery ----------
+async function loadGallery() {
+  const files = (await (await fetch('/gallery')).json()).files;
+  const photos = files.filter(f => f.kind === 'photo'), videos = files.filter(f => f.kind === 'video');
+  $('g-photos').innerHTML = photos.length ? '' : '<span class="empty-note">No photo yet.</span>';
+  $('g-videos').innerHTML = videos.length ? '' : '<span class="empty-note">No video yet.</span>';
+  for (const f of photos) {
+    const b = document.createElement('button');
+    b.innerHTML = `<img loading="lazy" src="/recordings/${f.name}" alt="">`;
+    b.addEventListener('click', () => openViewer(f));
+    $('g-photos').appendChild(b);
+  }
+  for (const f of videos) {  // MJPG .avi: not playable in browsers
+    const b = document.createElement('button');
+    b.className = 'tile';
+    b.innerHTML = `<svg class="i"><use href="#i-film"/></svg>${f.name.slice(0, 15)}<br>${f.size_mb} MB`;
+    b.addEventListener('click', () => openViewer(f));
+    $('g-videos').appendChild(b);
+  }
+}
+let viewing = null;
+function openViewer(f) {
+  viewing = f;
+  $('viewer-img').hidden = f.kind !== 'photo';
+  $('viewer-img').src = f.kind === 'photo' ? '/recordings/' + f.name : '';
+  $('viewer-name').textContent = f.kind === 'photo' ? '' : `${f.name} · ${f.size_mb} MB`;
+  showViewer(true);
+}
+// Fetched by the page (the phone's download manager has neither the session nor the certificate); share sheet on phones
+async function saveFile(name) {
+  const reply = await fetch('/recordings/' + encodeURIComponent(name));
+  if (!reply.ok) { toast('Cannot get ' + name); return; }
+  const blob = await reply.blob();
+  const file = new File([blob], name, {type: blob.type});
+  if (matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({files: [file]})) {
+    try { await navigator.share({files: [file]}); return; }
+    catch (e) { if (e.name === 'AbortError') return; }  // NotAllowedError (tap too old): download
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+$('viewer-dl').addEventListener('click', async () => {
+  $('viewer-dl').disabled = true;
+  try { await saveFile(viewing.name); } finally { $('viewer-dl').disabled = false; }
+});
+$('viewer-del').addEventListener('click', async () => {
+  if (!confirm(`Delete ${viewing.name} from the robot?`)) return;
+  const reply = await fetch('/recordings/' + encodeURIComponent(viewing.name), {method: 'DELETE'});
+  toast(reply.ok ? 'Deleted' : 'Cannot delete it');
+  showViewer(false); loadGallery();
+});
+$('viewer-close').addEventListener('click', () => showViewer(false));
+
+// ---------- Talkie-walkie ----------
+// Hold the mic button: the phone's microphone plays on Chromapi (16 kHz mono int16, HTTPS only)
+const TALK_RATE = 16000;
+let talk = null;
+async function talkStart() {
+  if (talk) return;
+  const resume = !!listen;  // listening resumes on release
+  listenStop();  // one way at a time
+  talk = {resume};  // asking: a release before the answer cancels
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia(
+      {audio: {echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1}});
+    if (!talk) { stream.getTracks().forEach(t => t.stop()); return; }
+    const ctx = new AudioContext();
+    await ctx.resume();  // iOS starts it suspended
+    const src = ctx.createMediaStreamSource(stream);
+    const proc = ctx.createScriptProcessor(2048, 1, 1);
+    const ratio = ctx.sampleRate / TALK_RATE;
+    proc.onaudioprocess = e => {
+      const x = e.inputBuffer.getChannelData(0), n = Math.floor(x.length / ratio), out = new Int16Array(n);
+      for (let i = 0; i < n; i++) {  // window mean before decimating
+        let sum = 0, a = Math.floor(i * ratio), b = Math.max(a + 1, Math.floor((i + 1) * ratio));
+        for (let j = a; j < b; j++) sum += x[j];
+        out[i] = Math.max(-1, Math.min(1, sum / (b - a))) * 32767;
+      }
+      if (socket.connected) socket.emit('talk', out.buffer);
+    };
+    src.connect(proc); proc.connect(ctx.destination);
+    talk = {stream, ctx, proc, src, resume};
+    $('b-mic').classList.add('talk');
+  } catch (err) {
+    talk = null;
+    toast(err.name === 'NotAllowedError' ? 'Microphone: permission refused' : 'Microphone unavailable');
+  }
+}
+function talkStop() {
+  const t = talk;
+  talk = null;
+  $('b-mic').classList.remove('talk');
+  if (!t) return;
+  if (t.stream) {
+    t.proc.disconnect(); t.src.disconnect(); t.ctx.close();
+    t.stream.getTracks().forEach(track => track.stop());
+  }
+  if (t.resume && pilot && !document.hidden) listenStart();
+}
+if (!window.isSecureContext || !navigator.mediaDevices) {
+  $('b-mic').disabled = true;
+  $('b-mic').title = 'Talkie-walkie: the browser gives the microphone to HTTPS pages only (chromapi run without --http)';
+} else {
+  const mic = $('b-mic');
+  mic.addEventListener('pointerdown', e => { mic.setPointerCapture(e.pointerId); talkStart(); });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) mic.addEventListener(ev, talkStop);
+  mic.addEventListener('keydown', e => { if ((e.code === 'Space' || e.code === 'Enter') && !e.repeat) { e.preventDefault(); talkStart(); } });
+  mic.addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'Enter') talkStop(); });
+  mic.addEventListener('contextmenu', e => e.preventDefault());
+  window.addEventListener('blur', talkStop);
+}
+
+// Headphones: Chromapi's microphone plays here, until hidden, talking or watching
+const LISTEN_LEAD_S = 0.08;
+let listen = null;
+async function listenStart() {
+  if (listen) return;
+  talkStop();
+  const ctx = new AudioContext();
+  const l = {ctx, next: 0};
+  listen = l;
+  await ctx.resume();
+  if (listen !== l) return;  // released meanwhile
+  socket.emit('listen_start');
+  $('b-listen').classList.add('talk'); $('b-listen').setAttribute('aria-pressed', 'true');
+}
+function listenStop() {
+  const l = listen;
+  listen = null;
+  $('b-listen').classList.remove('talk'); $('b-listen').setAttribute('aria-pressed', 'false');
+  if (!l) return;
+  socket.emit('listen_stop');
+  l.ctx.close();
+}
+socket.on('listen', data => {
+  if (!listen) return;
+  const pcm = new Int16Array(data), ctx = listen.ctx, buf = ctx.createBuffer(1, pcm.length, TALK_RATE), ch = buf.getChannelData(0);
+  for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 32768;
+  const src = ctx.createBufferSource();
+  src.buffer = buf; src.connect(ctx.destination);
+  const at = Math.max(ctx.currentTime + LISTEN_LEAD_S, listen.next);
+  src.start(at); listen.next = at + buf.duration;
+});
+$('b-listen').addEventListener('click', () => (listen ? listenStop() : listenStart()));
+document.addEventListener('visibilitychange', () => { if (document.hidden) listenStop(); });
+
+// ---------- One page drives ----------
+// The first page connected drives, the others watch
+const PILOT_ONLY = '#b-photo, #b-rec, #b-torch, #b-mic, #b-listen, #b-awake, #chip-batt, .stick, .quick, #b-emotes, ' +
+  '[data-mode], [data-gait], #fan-row, #ring-row, [data-maint], #b-power, #b-pad-tilt, #b-identify';
+let pilot = true;
+socket.on('role', r => {
+  if (r.pilot && !pilot) toast('You drive Chromapi now');
+  else if (!r.pilot && pilot) toast('Another pilot drives the Chromapi: you are watching');
+  pilot = r.pilot;
+  document.querySelectorAll(PILOT_ONLY).forEach(el => el.classList.toggle('off-pilot', !pilot));
+  $('chip-role').hidden = pilot;
+  if (!pilot) { talkStop(); listenStop(); hide(); }
+});
+
+// ---------- Access code ----------
+// The first browser chooses the code, the others enter it once
+const GATE = {
+  setup: ['Choose an access code', n => `Choose a code of at least ${n} characters. Anyone who wants to drive the robot or see its camera will need it.`, 'new-password'],
+  login: ['Access code', () => 'Enter the code chosen for this robot. Forgotten? Run chromapi access reset on the robot.', 'current-password'],
+  change: ['New access code', n => `At least ${n} characters. Every other device will have to enter the new password.`, 'new-password'],
+};
+let gateMode = null, minLength = 6, started = false;
+function showGate(mode) {
+  gateMode = mode;
+  const [title, text, complete] = GATE[mode];
+  $('gate-title').textContent = title; $('gate-text').textContent = text(minLength);
+  $('gate-current').value = $('gate-code').value = $('gate-confirm').value = ''; $('gate-code').autocomplete = complete;
+  $('gate-current').hidden = mode !== 'change';
+  $('gate-code').placeholder = mode === 'change' ? 'New code' : '';
+  $('gate-confirm').hidden = mode === 'login'; $('gate-cancel').hidden = mode !== 'change';
+  $('gate-error').textContent = '';
+  hide(); $('gate').hidden = false; $(mode === 'change' ? 'gate-current' : 'gate-code').focus();
+}
+function start() {
+  $('gate').hidden = true;
+  $('cam').src = '/video_feed?' + Date.now();
+  socket.connect();
+  if (!started) { started = true; loadMoods(); loadServos(); }
+}
+let checking = false;
+async function checkAccess() {
+  if (checking) return;
+  checking = true;
+  try {
+    const s = await (await fetch('/auth/state')).json();
+    minLength = s.min_length;
+    if (s.signed_in) { if (!socket.connected) start(); } else showGate(s.configured ? 'login' : 'setup');
+  } catch (e) { setTimeout(checkAccess, 3000); }
+  finally { checking = false; }
+}
+$('gate-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const code = $('gate-code').value;
+  if (gateMode !== 'login' && code.length < minLength) { $('gate-error').textContent = `At least ${minLength} characters.`; return; }
+  if (gateMode !== 'login' && code !== $('gate-confirm').value) { $('gate-error').textContent = 'The two codes differ.'; return; }
+  $('gate-go').disabled = true;
+  try {
+    const reply = await fetch('/auth/' + gateMode, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code, current: $('gate-current').value})});
+    const d = await reply.json();
+    if (reply.status === 409) { showGate('login'); $('gate-error').textContent = d.error; return; }
+    if (!reply.ok) { $('gate-error').textContent = d.error; return; }
+    if (gateMode === 'change') { $('gate').hidden = true; toast('Access code changed: other devices must enter it'); }
+    else start();
+  } finally { $('gate-go').disabled = false; }
+});
+$('gate-cancel').addEventListener('click', () => { $('gate').hidden = true; });
+$('b-change-code').addEventListener('click', () => showGate('change'));
+socket.on('connect_error', checkAccess);
+socket.on('disconnect', reason => { if (reason === 'io server disconnect') checkAccess(); });
+checkAccess();
+
+// ---------- Telemetry ----------
+socket.on('disconnect', () => setLink('Offline', ''));
+function setLink(text, cls) { $('link').textContent = text; $('chip-link').className = 'chip ' + cls; }
+const fmt = (v, d, unit) => v == null ? '--' : v.toFixed(d) + unit.replace(' ', '\u00a0');
+const LINK_TEXT = {'ok': 'connected', 'STM32 motherboard not answering': 'not answering', 'no serial port': 'not connected'};
+let wasRecording = false;
+
+socket.on('telemetry', d => {
+  state = d;
+  // Top chips: what a casual user needs.
+  const b = d.battery;
+  $('batt').textContent = b.percent == null ? '--' : Math.round(b.percent) + '%';
+  $('batt-fill').setAttribute('width', b.percent == null ? 0 : (14 * b.percent / 100).toFixed(1));
+  $('chip-viewers').hidden = !d.viewers; $('viewers').textContent = d.viewers;
+  const pad = d.gamepad;
+  $('d-gamepad').textContent = !pad ? 'none' : pad.battery == null ? 'connected' : `connected · ${pad.battery} %`;
+  $('b-pad-tilt').disabled = !pad || !pilot;
+  $('b-pad-tilt').classList.toggle('active', !!(pad && pad.tilt_lean));
+  $('b-pad-tilt').textContent = pad && pad.tilt_lean ? 'On' : 'Off';
+  $('chip-batt').className = 'chip chip-btn ' + (b.level || '');
+  $('chip-batt').title = b.percent == null ? 'Battery: not read yet' : 'Battery: show the charge on the LED ring';
+  $('temp').textContent = fmt(d.cpu_temp, 0, '°');
+  $('chip-temp').className = 'chip ' + (d.cpu_temp > 75 ? 'bad' : d.cpu_temp > 65 ? 'low' : '');
+  if (d.link !== 'ok') setLink(d.link === 'no serial port' ? 'No motherboard' : 'Motherboard silent', 'warn');
+  else if (d.simulation) setLink('Simulation', 'sim');
+  else if (d.gamepad) setLink('Bluetooth', 'bt');
+  else setLink('Live', 'live');
+
+  // Driving controls.
+  const awake = $('b-awake');
+  awake.textContent = d.awake ? 'Lie down' : 'Wake up';
+  awake.classList.toggle('awake', d.awake);
+  awake.disabled = d.link !== 'ok';
+  document.querySelectorAll('[data-gait]').forEach(g => g.classList.toggle('active', g.dataset.gait === d.gait));
+  document.querySelectorAll('[data-mode]').forEach(g => g.classList.toggle('active', g.dataset.mode === d.mode));
+  $('lbl-r').textContent = d.mode === 'lean' ? 'Lean' : 'Turn';
+  $('lbl-l').textContent = d.mode === 'lean' ? 'Shift' : 'Walk';
+  $('b-torch').classList.toggle('on', d.torch);
+  if (d.ring && Date.now() > ringBusy) { if (d.ring !== 'rainbow') $('s-ring').value = rgbHue(d.ring); showRing(d.ring); }
+  $('fan-row').hidden = d.fan == null;
+  $('b-fan-auto').classList.toggle('active', d.fan_auto);
+  if (d.fan != null && Date.now() > fanBusy) { $('s-fan').value = d.fan; $('s-fan-v').textContent = Math.round(d.fan) + '%'; }
+  const emoteBlock = !d.awake ? 'Wake Chromapi up first.' : d.mode !== 'turn' ? 'Switch back to Turn mode first.'
+    : d.walking ? 'Stop walking first.' : d.emote ? 'An emote is playing.' : '';
+  document.querySelectorAll('[data-emote]').forEach(e => e.disabled = !!emoteBlock);
+  $('emote-hint').textContent = emoteBlock;
+  $('s-speed').max = d.speed_max;
+  if (Date.now() > heightBusy) { $('s-height').value = d.height_mm; $('s-height-v').textContent = mm(d.height_mm); }
+  const m = d.maintenance || {};
+  document.querySelectorAll('[data-maint]').forEach(b => {
+    b.disabled = !!m.running || d.awake || d.simulation;
+    $('m-' + b.dataset.maint).textContent = m.job === b.dataset.maint ? (m.running ? 'running…' : m.ok ? 'done' : 'failed') : '';
+  });
+  const step = servoSteps.indexOf(m.job);
+  if (step >= 0) {
+    servoNext = m.running || !m.ok ? step : (step + 1) % servoSteps.length;
+    $('m-assembly').textContent = m.running ? `${step + 1}/${servoSteps.length}…`
+      : !m.ok ? `${step + 1}/${servoSteps.length} failed` : step + 1 === servoSteps.length ? 'done' : `next: ${step + 2}/${servoSteps.length}`;
+  }
+  $('maint-hint').textContent = d.simulation ? 'Real robot only.' : m.running ? (m.cancelled ? 'Cancelling…' : 'Running: the robot does not answer meanwhile.')
+    : d.awake ? 'Lay Chromapi down first.' : '';
+  $('maint-log').hidden = !m.log; $('maint-log').textContent = m.log || '';
+  if (m.running && runShown !== m.job) showRun(m.job);
+  const cancellable = m.running && m.job !== 'update_firmware';
+  $('maint-cancel').hidden = !cancellable || open === $('modal-run');
+  for (const id of ['run-cancel', 'maint-cancel']) {
+    $(id).disabled = !!m.cancelled; $(id).textContent = m.cancelled ? 'Cancelling…' : 'Cancel';
+  }
+  if (!m.running && runShown) {
+    runShown = null;
+    if (open === $('modal-run')) hide();
+    // Servo assembly: next servo, or retry
+    if (step >= 0 && !m.cancelled && pilot && !(m.ok && step + 1 === servoSteps.length)) {
+      if (m.ok) openMaint(servoSteps[step + 1], 'Next servo', `Servo ${step + 1} done.`);
+      else openMaint(m.job, 'Retry', `Failed: ${(m.log || '').trim().split('\n').pop()}`);
+    }
+  }
+  if (Date.now() > speedBusy) { $('s-speed').value = d.speed_scale; $('s-speed-v').textContent = Math.round(d.speed_scale * 100) + '%'; }
+  if (d.status !== lastStatus) { if (lastStatus) toast(d.status); lastStatus = d.status; }
+
+  // Camera.
+  const r = d.cam_rec;
+  $('cam').hidden = !r; $('cam-off').hidden = !!r;
+  $('b-photo').disabled = $('b-rec').disabled = !r;
+  if (r) {
+    $('b-rec').classList.toggle('on', r.on);
+    $('rec-badge').classList.toggle('on', r.on);
+    $('rec-badge').textContent = 'REC ' + r.seconds.toFixed(0) + ' s';
+    if (wasRecording && !r.on) toast('Video saved to the gallery');
+    wasRecording = r.on;
+  }
+
+  // Same values in Settings (d-*) and on the video (o-*)
+  const s = d.servos;
+  const diag = {
+    link: d.simulation ? 'simulated' : LINK_TEXT[d.link] || d.link,
+    batt: d.voltage == null ? (b.percent == null ? 'not read yet' : '--')
+      : `${Math.round(b.percent)}% · ${fmt(d.voltage, 2, ' V')} · ${fmt(d.current, 2, ' A')} · ${fmt(d.power, 1, ' W')}`,
+    servos: s ? (s.missing.length ? 'not answering: ' + s.missing.join(', ') : 'all 12 answering') : '--',
+    stemp: s ? fmt(s.max_temp, 0, ' °C') : '--',
+    cpu: fmt(d.cpu_temp, 0, ' °C'),
+    tilt: fmt(d.tilt_deg, 1, '°'),
+  };
+  for (const [key, text] of Object.entries(diag)) $('d-' + key).textContent = $('o-' + key).textContent = text;
+  for (const leg of ['tl', 'tr', 'bl', 'br']) for (const p of ['f-', 'o-f-']) $(p + leg).classList.toggle('on', !!(d.contacts && d.contacts[leg]));
+  const v = d.versions;
+  if (!m.running && v.firmware_shipped && !d.simulation && d.link === 'ok') {
+    $('m-update_firmware').textContent = v.firmware_update ? `${v.firmware || 'older'} → ${v.firmware_shipped}`
+      : m.job === 'update_firmware' && !m.ok ? $('m-update_firmware').textContent : 'up to date';
+  }
+  $('b-settings').classList.toggle('badge', !!v.firmware_update);
+  if (v.firmware_update && !updateToasted) { updateToasted = true; toast(`Firmware ${v.firmware_shipped} available: Settings › Maintenance`); }
+  $('v-sdk').textContent = d.versions.sdk;
+  if (d.host && $('v-host').textContent !== d.host) { $('v-host').textContent = d.host; document.title = d.host + ' · Chromapi'; }
+  $('v-fw').textContent = d.versions.firmware || 'unknown';
+});
+</script>
+</body>
+</html>
