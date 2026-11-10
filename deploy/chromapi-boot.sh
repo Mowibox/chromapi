@@ -67,7 +67,8 @@ if [ ! -e /var/lib/cloud/instance/boot-finished ]; then
     user="$(getent passwd 1000 | cut -d: -f1)"
     [ -z "$user" ] || python3 - /boot/firmware/user-data "$user" <<'PY' | chpasswd -e
 import sys, yaml
-for entry in (yaml.safe_load(open(sys.argv[1])) or {}).get("users") or []:
+data = yaml.safe_load(open(sys.argv[1])) or {}
+for entry in [data.get("user")] + (data.get("users") or []):  # Imager writes "user:" (cloud-init's default user)
     if isinstance(entry, dict) and entry.get("name") == sys.argv[2] and entry.get("passwd"):
         print(f"{sys.argv[2]}:{entry['passwd']}")
 PY

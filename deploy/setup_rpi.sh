@@ -30,7 +30,9 @@ MODEL="$(tr -d '\0' </proc/device-tree/model)"
 echo "Board: $MODEL"
 [ -e "$CONFIG.chromapi.bak" ] || sudo cp "$CONFIG" "$CONFIG.chromapi.bak"
 # Legacy camera stack (/dev/video0) needs the fake KMS driver; the Pi 5 has libcamera only
-case "$MODEL" in "Raspberry Pi 5"*) ;; *) sudo sed -i 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-fkms-v3d/' "$CONFIG" ;; esac
+# (camera_auto_detect: Ubuntu's default loads the sensor's libcamera driver, which takes it from the legacy stack)
+case "$MODEL" in "Raspberry Pi 5"*) ;; *) sudo sed -i -e 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-fkms-v3d/' \
+    -e 's/^camera_auto_detect=1/camera_auto_detect=0/' "$CONFIG" ;; esac
 sudo sed -i '/^gpu_mem=/d' "$CONFIG"
 # Lines an older set-up appended under [all]: now in the board sections below
 for line in enable_uart=1 start_x=1 gpu_mem=128 dtoverlay=pwm,pin=13,func=4 dtoverlay=miniuart-bt core_freq_min=500 \

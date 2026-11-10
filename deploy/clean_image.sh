@@ -2,9 +2,10 @@
 # Chromapi: clean an installed card before it is copied into an SD image, then power off. On the robot, as the user
 # that ran setup_rpi.sh, from the SSH login shell:
 #
-#   exec ./chromapi/deploy/clean_image.sh
+#   unset HISTFILE; ./chromapi/deploy/clean_image.sh
 #
-# exec: no shell is left to write its history back after the clean. The robot is unreachable afterwards (no Wi-Fi,
+# unset HISTFILE: the login shell would write its history back when the session closes. The robot is unreachable
+# afterwards (no Wi-Fi,
 # no SSH key, password locked): take the card out and copy it on a PC before it boots again (see the end).
 # Made again at the image's first boot: SSH host keys, hostname and chromapi-name.txt (chromapi-boot), machine-id
 # (systemd), user, password, SSH key and Wi-Fi from Raspberry Pi Imager (cloud-init), access code, session key and
