@@ -88,7 +88,7 @@ def test_server_serves_the_page_offline_and_relays_intentions(monkeypatch, tmp_p
     assert http.delete("/recordings/20261027-101011_camera.avi").status_code == 200
     assert [f["kind"] for f in http.get("/gallery").get_json()["files"]] == ["photo"]
     moods = http.get("/moods").get_json()["moods"]
-    assert len(moods) == 20 and moods[-1] == {"name": "wiggle", "emoji": "✨"}
+    assert len(moods) == 18 and moods[-1] == {"name": "wiggle", "emoji": "✨"}
     report = http.get("/report")
     assert report.status_code == 200 and b"no bridge" in report.data and b'"percent": 42' in report.data
     assert not written[0].exists()  # no copy left on the robot

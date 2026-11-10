@@ -35,7 +35,7 @@ def test_every_bundled_move_passes():
     _with(YES, code="__import__('os')"),  # unknown key
     _with(YES, description=""),
     _with(YES, time=YES["time"][:-1]),  # one sample without its time
-    _with(YES, time=[t * 10 for t in YES["time"]]),  # 14 s
+    _with(YES, time=[t * 50 for t in YES["time"]]),  # 70 s, beyond 60 s
     _with(YES, time=["0"] + YES["time"][1:]),  # not a number
     _scaled(YES, "body", 3.0),  # beyond 0.2 rad
     _with(_scaled(YES, "body", 1.5), time=[t / 4 for t in YES["time"]]),  # too fast
