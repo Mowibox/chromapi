@@ -9,6 +9,7 @@ import pytest
 
 from chromapi.chromapi import MotorCommand, RobotState
 from chromapi.locomotion.recorded_move import (
+    MAX_DURATION_S,
     SETTLE_S,
     RecordedLegMove,
     RecordedMove,
@@ -532,7 +533,7 @@ def test_recorded_moves_start_and_end_at_rest(name):
 
     move.on_start()
     ticks = 0
-    while not move.done and ticks < 1000:
+    while not move.done and ticks < (MAX_DURATION_S + SETTLE_S) / 0.01 + 10:
         move.step(RobotState(), MotorCommand(target_angles={}), 0.01)
         ticks += 1
     assert ticks == pytest.approx((move.duration + SETTLE_S) / 0.01, abs=2)
