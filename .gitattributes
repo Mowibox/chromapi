@@ -11,5 +11,4 @@
 *.svg filter=lfs diff=lfs merge=lfs -text
 *.heic filter=lfs diff=lfs merge=lfs -text
 *.webp filter=lfs diff=lfs merge=lfs -text
-# Served by the web app: plain git, so a clone without git-lfs (the robot) has the real files
 src/chromapi/web/static/** !filter !diff !merge !text
