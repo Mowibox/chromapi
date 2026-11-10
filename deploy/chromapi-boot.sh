@@ -62,8 +62,8 @@ fi
 ssh-keygen -A  # only the missing keys
 
 if [ ! -e /var/lib/cloud/instance/boot-finished ]; then
-    # First boot of an SD image (clean_image.sh): cloud-init skips the password of a user that already exists, so the
-    # one chosen in Raspberry Pi Imager for the image's user is set here
+    # First boot of an SD image (clean_image.sh). An Imager that customises it (1.x does, 2.x only for its own list)
+    # writes a password hash in user-data: cloud-init skips it for a user that already exists, so it is set here
     user="$(getent passwd 1000 | cut -d: -f1)"
     [ -z "$user" ] || python3 - /boot/firmware/user-data "$user" <<'PY' | chpasswd -e
 import sys, yaml
@@ -73,6 +73,6 @@ for entry in [data.get("user")] + (data.get("users") or []):  # Imager writes "u
         print(f"{sys.argv[2]}:{entry['passwd']}")
 PY
 elif [ ! -f /etc/cloud/cloud.cfg.d/99-chromapi.cfg ]; then
-    # After cloud-init's first run (it set the name chosen in Imager): it would put that name back at each boot
+    # After cloud-init's first run (it set the name of user-data, if any): it would put that name back at each boot
     echo "preserve_hostname: true" >/etc/cloud/cloud.cfg.d/99-chromapi.cfg
 fi

@@ -14,7 +14,7 @@ from typing import List, Tuple
 
 SCAN_S = 20  # [s]
 STEP_TIMEOUT_S = 30  # [s]
-# (command, fields `info` must show, --timeout [s]); trusted first, or a PlayStation pad is refused right after pairing
+# (command, fields `info` must show, --timeout [s]); trusted first, or a controller pad is refused right after pairing
 STEPS = (("trust", ("Trusted",), 0.0), ("pair", ("Paired", "Bonded"), 15.0), ("connect", ("Connected",), 10.0))
 CHECK_S = 5.0  # [s] for a step's state to show in `info`
 _DEVICE = re.compile(r"^Device ([0-9A-F:]{17}) (.*)$")

@@ -16,7 +16,7 @@ set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 BOOT=/boot/firmware
 
-echo "Image user: $USER (uid $(id -u)). People flashing the image choose this user name in Raspberry Pi Imager."
+echo "Image user: $USER (uid $(id -u))."
 [ "$(id -u)" -eq 1000 ] || echo "[!] uid is not 1000: chromapi-boot will not give it the Imager password." >&2
 if [ -n "$(git -C "$REPO" status --porcelain)" ]; then
     echo "[!] $REPO has local changes, they go into the image:" >&2
@@ -47,12 +47,22 @@ sudo rm -f "$BOOT/chromapi-name.txt"
 sudo cloud-init clean --logs --seed --machine-id --configs all
 sudo rm -f /etc/netplan/*.yaml /var/lib/chromapi/network-config.sha256
 sudo rm -rf /etc/NetworkManager/system-connections/*
-# Written back by chromapi-boot after the first boot: until then cloud-init may set the name chosen in Imager
+# Written back by chromapi-boot after the first boot: until then cloud-init may set the name of user-data
 sudo rm -f /etc/cloud/cloud.cfg.d/99-chromapi.cfg
 sudo tee "$BOOT/user-data" >/dev/null <<EOF
 #cloud-config
-# Chromapi image. Raspberry Pi Imager's OS customisation writes this file: user name "$USER", password or SSH key,
-# Wi-Fi. Without it no one can log in (no default password); the web app still answers on Ethernet.
+# Chromapi image: read once, at the first boot. The Wi-Fi is in network-config, next to this file.
+# Nothing to change here to use the web app. To log in over SSH (user "$USER", no password by default), choose a
+# password and remove the "#" of these lines. Spaces only, no tabs.
+#ssh_pwauth: true
+#chpasswd:
+#  expire: false
+#  users:
+#    - name: $USER
+#      password: choose-a-password
+#      type: text
+# Name of the robot on the network (default: chromapi-xxxx, written in chromapi-name.txt after the first boot):
+#hostname: my-chromapi
 EOF
 sudo tee "$BOOT/network-config" >/dev/null <<'EOF'
 # Netplan configuration, applied at the first boot by cloud-init, and after it by Chromapi each time this file is
