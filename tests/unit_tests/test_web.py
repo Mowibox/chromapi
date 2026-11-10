@@ -56,7 +56,7 @@ def test_server_serves_the_page_offline_and_relays_intentions(monkeypatch, tmp_p
     http = app.test_client()
     page = http.get("/").get_data(as_text=True)
     assert '<script src="/static/socket.io.min.js">' in page and "cdnjs" not in page
-    for asset in ("/static/socket.io.min.js", "/static/logo.png", "/static/fonts/varela-round.woff2", "/favicon.ico"):
+    for asset in ("/static/socket.io.min.js", "/static/logo.png", "/static/motherboard_front.png", "/static/fonts/varela-round.woff2", "/favicon.ico"):
         assert http.get(asset).status_code == 200, asset
     # Signed out: the page and its sign-in screen only.
     for private in ("/video_feed", "/gallery", "/report", "/recordings/x.jpg", "/moods"):

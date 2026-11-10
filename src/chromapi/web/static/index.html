@@ -190,13 +190,13 @@ button.row:disabled { opacity: 0.45; cursor: default; }
   opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; text-align: center; }
 .modal.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
 .modal p { color: var(--muted); margin: 6px 0 18px; }
-/* Motherboard top view [mm]: the servo connector of an assembly step */
-.board { width: 100%; margin: -6px 0 14px; font: 2.4px sans-serif; fill: var(--muted); }
-.board rect { fill: none; stroke: var(--line); stroke-width: 0.4; }
-.board .pcb { fill: var(--surface-2); }
-.board .conn rect { stroke: var(--muted); }
-.board .conn.on rect { fill: var(--pink); stroke: var(--pink); }
-.board .conn.on text { fill: var(--pink); font-weight: 700; }
+/* Motherboard top view, in KiCad's coordinates [mm]: the servo connector of an assembly step */
+.board { width: 100%; margin: -6px 0 14px; }
+.board .conn rect { fill: none; stroke: none; }
+.board .conn.on rect { fill: var(--pink); fill-opacity: 0.3; stroke: var(--pink); stroke-width: 0.7;
+  animation: conn-pulse 1.2s ease-in-out infinite alternate; }
+@keyframes conn-pulse { to { fill-opacity: 0.05; } }
+@media (prefers-reduced-motion: reduce) { .board .conn.on rect { animation: none; } }
 .stack { display: flex; flex-direction: column; gap: 10px; }
 .btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; border-radius: 16px;
   border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; color: inherit; text-decoration: none; }
@@ -418,14 +418,13 @@ button.row:disabled { opacity: 0.45; cursor: default; }
 <div class="modal" id="modal-maint" role="dialog" aria-label="Maintenance">
   <h2 style="margin:0;font-weight:400" id="maint-title"></h2>
   <p id="maint-text"></p>
-  <svg class="board" id="maint-board" viewBox="102 68.5 87 59" hidden aria-hidden="true">
-    <rect class="pcb" x="103" y="69.46" width="85" height="57" rx="4"/>
-    <rect x="114.4" y="74.3" width="50.8" height="5.1"/><text x="139.8" y="83.4" text-anchor="middle">Raspberry Pi header</text>
-    <rect x="177.9" y="120" width="7.2" height="6"/><text x="181.5" y="118.6" text-anchor="middle">USB-C</text>
-    <g class="conn" data-conn="tr"><rect x="127.8" y="112.1" width="9.9" height="4.9"/><text x="132.8" y="110.9" text-anchor="middle">TopRight</text></g>
-    <g class="conn" data-conn="br"><rect x="138.8" y="112.1" width="9.9" height="4.9"/><text x="143.8" y="110.9" text-anchor="middle">BotRight</text></g>
-    <g class="conn" data-conn="tl"><rect x="127.8" y="118.1" width="9.9" height="4.9"/><text x="132.8" y="125.6" text-anchor="middle">TopLeft</text></g>
-    <g class="conn" data-conn="bl"><rect x="138.8" y="118.1" width="9.9" height="4.9"/><text x="143.8" y="125.6" text-anchor="middle">BotLeft</text></g>
+  <!-- pcbdraw render (600 dpi, 1000 px wide), placed with the mounting holes; connectors J5-J8 -->
+  <svg class="board" id="maint-board" viewBox="104 70.2 88.2 59.4" hidden aria-hidden="true">
+    <image href="/static/motherboard_front.png" x="103.06" y="69.21" width="90.13" height="61.38"/>
+    <g class="conn" data-conn="tr"><rect x="127.26" y="112.19" width="11.1" height="6.1" rx="0.8"/></g>
+    <g class="conn" data-conn="br"><rect x="138.25" y="112.19" width="11.1" height="6.1" rx="0.8"/></g>
+    <g class="conn" data-conn="tl"><rect x="127.26" y="118.18" width="11.1" height="6.1" rx="0.8"/></g>
+    <g class="conn" data-conn="bl"><rect x="138.25" y="118.18" width="11.1" height="6.1" rx="0.8"/></g>
   </svg>
   <div class="stack">
     <button class="btn" id="maint-go">Start</button>
