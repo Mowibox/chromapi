@@ -101,8 +101,6 @@ sudo install -m 644 "$DEPLOY/chromapi-boot.service" /etc/systemd/system/
 # chromapi.local alias
 sudo install -m 755 "$DEPLOY/chromapi-alias.sh" /usr/local/sbin/chromapi-alias
 sudo install -m 644 "$DEPLOY/chromapi-alias.service" /etc/systemd/system/
-# cloud-init would put the name of user-data back at each boot
-echo "preserve_hostname: true" | sudo tee /etc/cloud/cloud.cfg.d/99-chromapi.cfg >/dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable chromapi-boot chromapi-alias chromapi-audio-keepalive "chromapi-fan@$USER" "chromapi@$USER" avahi-daemon
 # No unattended apt upgrade
