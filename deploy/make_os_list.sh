@@ -31,7 +31,7 @@ json.dump({
     ]},
     "os_list": [{
         "name": "Chromapi OS $VERSION",
-        "description": "Ubuntu Server 24.04 LTS with Chromapi SDK,
+        "description": "Ubuntu Server 24.04 LTS with Chromapi SDK",
         "icon": "https://raw.githubusercontent.com/Mowibox/Chromapi/main/src/chromapi/web/static/logo.png",
         "url": "$URL",
         "extract_size": $(xz --robot -l "$IMAGE" | awk '/^totals/ {print $5}'),
