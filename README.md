@@ -57,6 +57,13 @@ with Chromapi(backend="mujoco", launch_viewer=True) as robot:
 
 More in [`examples/`](./examples/): `dance.py`, `walk.py` and `gamepad.py`. Each runs on the robot, or in MuJoCo with `--sim`.
 
+To keep the simulation open between runs of your script, start the simulation window on its own, then use `backend="sim-server"`:
+
+```bash
+chromapi sim              # On a terminal: launches the simulation and its window (--headless: none)
+python my_script.py       # On another terminal: Chromapi(backend="sim-server")
+```
+
 ### On the real robot
 
 On the Raspberry Pi, once the [motherboard firmware](https://github.com/Mowibox/chromapi_motherboard) is flashed:

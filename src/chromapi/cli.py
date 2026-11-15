@@ -41,6 +41,7 @@ TOOLS: Dict[str, Any] = {
         "setup": ("chromapi.utils.setup_motors:main", "set each servo's ID and registers (--all: the 12 already assembled)"),
     },
     "run": ("chromapi.web.app:main", "start Chromapi and its web app (https://<robot-ip>:5000)"),
+    "sim": ("chromapi.utils.sim_server:main", "run the MuJoCo simulation on its own: scripts use Chromapi(backend=\"sim-server\")"),
     "health": ("chromapi.utils.health:main", "what is wrong with Chromapi, and what to do about it"),
     "flash": ("chromapi.utils.flash:main", "update the motherboard firmware (STM32)"),
     "report": ("chromapi.utils.report:main", "write a support report to post on Discord"),

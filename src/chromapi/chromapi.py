@@ -591,6 +591,87 @@ class MuJoCoBackend(RobotBackend):
             self._mujoco.mj_step(self._model, self._data)
 
 
+#: Where ``chromapi sim`` listens: this computer only. The key keeps other local programs out (pickled calls).
+SIM_ADDRESS = ("localhost", 7447)
+SIM_AUTHKEY = b"chromapi-sim"
+
+
+class SimClientBackend(RobotBackend):
+    """The simulation of another process (``chromapi sim``), standing in for the motherboard.
+
+    The script keeps the whole SDK (control loop, moves, walk); the simulation only runs the physics and
+    the viewer, and goes on when the script stops or restarts.
+    """
+
+    def __init__(self, address: Tuple[str, int] = SIM_ADDRESS) -> None:
+        """Where ``chromapi sim`` listens; nothing is opened before :meth:`connect`."""
+        self._address = address
+        self._conn: Any = None  # multiprocessing.connection.Connection once connected
+        self._lock = threading.Lock()  # one call at a time: the control loop and the script's thread share it
+
+    def connect(self) -> bool:
+        """Reach the simulation; False (logged) if ``chromapi sim`` is not running."""
+        from multiprocessing.connection import Client
+
+        try:
+            self._conn = Client(self._address, authkey=SIM_AUTHKEY)
+        except OSError:
+            logger.error("No simulation on %s:%d: start it first with 'chromapi sim'", *self._address)
+            return False
+        return True
+
+    def close(self) -> None:
+        """Leave the simulation running."""
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
+
+    def _call(self, name: str, *args: Any) -> Any:
+        """Run ``name(*args)`` in the simulation; None once it is closed."""
+        with self._lock:
+            if self._conn is None:
+                return None
+            try:
+                self._conn.send((name, args))
+                result = self._conn.recv()
+            except (EOFError, OSError):
+                logger.warning("The simulation was closed")
+                self._conn = None
+                return None
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    def send_joint_targets(self, q: Dict[str, float]) -> bool:
+        """Write the targets and step the simulation up to now."""
+        return bool(self._call("send_joint_targets", dict(q)))
+
+    def read_state(self) -> Optional[RobotState]:
+        """The simulated joint/IMU/contact state."""
+        result: Optional[RobotState] = self._call("read_state")
+        return result
+
+    def set_torque_enabled(self, enabled: bool, joints: Optional[Sequence[str]] = None) -> None:
+        """Forwarded (no-op in MuJoCo for now)."""
+        self._call("set_torque_enabled", enabled, None if joints is None else list(joints))
+
+    def set_led_all(self, r: int, g: int, b: int) -> None:
+        """Recolor the simulated ring."""
+        self._call("set_led_all", r, g, b)
+
+    def set_led(self, index: int, r: int, g: int, b: int) -> None:
+        """Forwarded (no-op in MuJoCo)."""
+        self._call("set_led", index, r, g, b)
+
+    def set_led_bulk(self, colors: Sequence[Tuple[int, int, int]]) -> None:
+        """Recolor the simulated ring (its mean color)."""
+        self._call("set_led_bulk", [tuple(c) for c in colors])
+
+    def is_alive(self) -> bool:
+        """False once the simulation was closed: the control loop then stops."""
+        return self._conn is not None
+
+
 # ========================================================================================
 # Move / behavior abstraction - the RL residual & scripted-motion extension point
 # ========================================================================================
@@ -708,7 +789,8 @@ class Chromapi:
         """Build a Chromapi instance without connecting yet (see :meth:`connect`).
 
         Args:
-            backend: ``"hardware"`` (real robot over UART) or ``"mujoco"`` (simulation).
+            backend: ``"hardware"`` (real robot over UART), ``"mujoco"`` (simulation in this process) or
+                ``"sim-server"`` (the simulation of ``chromapi sim``, running in another terminal).
             config_path: Path to ``config.yaml`` (servo ID map, control-loop frequency, ...),
                 with :data:`USER_CALIBRATION_PATH` merged over it.
             mjcf_path: MJCF scene to load for the ``"mujoco"`` backend.
@@ -751,8 +833,10 @@ class Chromapi:
                 key_callback=key_callback,
                 follow_robot=follow_robot,
             )
+        elif backend == "sim-server":
+            self.backend = SimClientBackend()
         else:
-            raise ValueError(f"Unknown backend {backend!r}, expected 'hardware' or 'mujoco'")
+            raise ValueError(f"Unknown backend {backend!r}, expected 'hardware', 'mujoco' or 'sim-server'")
 
         self.battery = Battery(self.config["battery"])
         self._battery_level: Optional[str] = None
