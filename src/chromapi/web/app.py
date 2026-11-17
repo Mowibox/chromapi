@@ -38,7 +38,6 @@ from chromapi.chromapi import (
     IDLE_LED_RGB,
     Chromapi,
     HardwareBackend,
-    MuJoCoBackend,
     load_config,
     sdk_version,
 )
@@ -1068,8 +1067,6 @@ def main() -> int:
 
     # Heavy setup before connect(): it would starve the control loop
     robot = Chromapi(backend="hardware" if hardware else "mujoco", launch_viewer=not hardware)
-    if isinstance(robot.backend, MuJoCoBackend):
-        robot.backend.start_in_pose(robot.rest_pose())
     web_input = WebInput()
     teleop = Teleop(robot, web_input, hardware, GamepadControl())
     teleop.on_shutdown = lambda power: socketio.emit("goodbye", power)

@@ -347,7 +347,7 @@ class HardwareBackend(RobotBackend):
         self._bridge.set_led_color_bulk(list(colors), wait=False)
 
 
-#: Chassis height [m] at which Chromapi rests on the floor in ZERO_POSE (settles at 0.0774 m).
+#: Chassis height [m] at which Chromapi rests on the floor in ZERO_POSE (settles at 0.0774 m): start_in_pose lowers from above it.
 _SPAWN_HEIGHT_M = 0.08
 
 
@@ -425,10 +425,8 @@ class MuJoCoBackend(RobotBackend):
                 g for g in range(self._model.ngeom) if self._model.geom_bodyid[g] == body_id
             ]
 
-        # The MJCF puts the chassis at z = 0, which is inside the floor: MuJoCo then ejects the
-        # robot on the first steps. Spawn it resting on its belly instead (ZERO_POSE, legs splayed).
-        self._data.qpos[2] = _SPAWN_HEIGHT_M
-        mujoco.mj_forward(self._model, self._data)
+        # The MJCF puts the chassis at z = 0, inside the floor: start lying in REST_POSE, as the real robot.
+        self.start_in_pose(K.REST_POSE)
 
     def connect(self) -> bool:
         """No-op (the model is already loaded); optionally opens the interactive viewer."""
