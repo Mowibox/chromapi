@@ -11,6 +11,19 @@ readme = "README.md"
 license = "Apache-2.0 AND CC-BY-NC-SA-4.0"
 license-files = ["LICENSE", "src/chromapi/model/LICENSE"]
 requires-python = ">=3.12"
+keywords = ["robotics", "quadruped", "robot", "raspberry-pi", "mujoco", "sdk"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Robotics",
+]
 dependencies = [
     "numpy>=2.2.5",
     "pyserial>=3.5",
@@ -55,6 +68,14 @@ dev = [
     "types-toml",
 ]
 
+[project.urls]
+Homepage = "https://mowibox.github.io/chroma/en/chromapi/"
+Documentation = "https://mowibox.github.io/chroma/en/chromapi/"
+Source = "https://github.com/Mowibox/chromapi"
+Issues = "https://github.com/Mowibox/chromapi/issues"
+Firmware = "https://github.com/Mowibox/chromapi_motherboard"
+Discord = "https://discord.gg/SUQTs6QV3M"
+
 [project.scripts]
 chromapi = "chromapi.cli:main"
 
@@ -64,6 +85,9 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["__pycache__/*", "*.pyc"]
 
 [tool.setuptools.package-data]
 chromapi = ["assets/**/*", "config/*", "model/**/*", "web/static/**/*"]
