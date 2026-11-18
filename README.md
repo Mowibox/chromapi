@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Chromapi logo" src="./assets/chromapi_logo.png" width="220">
+  <img alt="Chromapi logo" src="https://raw.githubusercontent.com/Mowibox/chromapi/main/assets/chromapi_logo.png" width="220">
 </p>
 
 <h1 align="center">Chromapi</h1>
@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://mowibox.github.io/chroma/en/chromapi/design/">How it works</a> ·
-  <a href="./examples/">Examples</a> ·
+  <a href="https://mowibox.github.io/chroma/en/chromapi/">Documentation</a> ·
+  <a href="https://github.com/Mowibox/chromapi/tree/main/examples">Examples</a> ·
   <a href="https://discord.gg/SUQTs6QV3M">Discord</a> ·
   <a href="#contributions">Contributing</a>
 </p>
@@ -25,16 +25,28 @@
 </p>
 
 <p align="center">
-  <img alt="Chromapi dancing" src="./assets/chromapi.gif"/>
+  <img alt="Chromapi dancing" src="https://raw.githubusercontent.com/Mowibox/chromapi/main/assets/chromapi.gif"/>
 </p>
 
 ## Getting started
 
-To build the robot, start with the [Bill of Materials](https://mowibox.github.io/chroma/en/chromapi/bom/) and the [specifications](https://mowibox.github.io/chroma/en/chromapi/specifications/) on the Chroma website.
+Three ways in, each detailed on the [Chroma website](https://mowibox.github.io/chroma/en/chromapi/):
+
+* **Build the robot:** print the parts and order the components from the [Bill of Materials](https://mowibox.github.io/chroma/en/chromapi/build/robot-bom/), then follow the [build guide](https://mowibox.github.io/chroma/en/chromapi/build/).
+* **Set up a robot you have built:** flash the Chromapi OS image on a microSD card with Raspberry Pi Imager ([installation](https://mowibox.github.io/chroma/en/chromapi/getting-started/installation/)), then follow the [first start](https://mowibox.github.io/chroma/en/chromapi/getting-started/first-start/) and drive it from your phone with the [web app](https://mowibox.github.io/chroma/en/chromapi/getting-started/web-app/).
+* **Program it, with or without a robot:** install the SDK below and start in [simulation](https://mowibox.github.io/chroma/en/chromapi/developing/simulation/).
 
 ### Installation
 
-Requires Python 3.12 and [uv](https://docs.astral.sh/uv/) (or pip).
+Requires Python 3.12 or later.
+
+```bash
+pip install "chromapi[all]"    # or, in a uv project: uv add "chromapi[all]"
+```
+
+Extras: `audio` enables sounds on the robot, `sim` installs MuJoCo for simulation, `rl` installs ONNX Runtime to run trained policies *(comming soon!)*, and `hub` downloads moves from Hugging Face datasets.
+
+To contribute or run the examples, install from source instead:
 
 ```bash
 git clone https://github.com/Mowibox/chromapi
@@ -42,22 +54,20 @@ cd chromapi
 uv sync --all-extras    # or: pip install -e ".[all]"
 ```
 
-The `audio` extra enables sounds on the robot and the `sim` extra installs MuJoCo for simulation.
-
 ### In simulation
 
 ```python
 from chromapi.chromapi import Chromapi
 
 with Chromapi(backend="mujoco", launch_viewer=True) as robot:
-    robot.wake_up()
+    robot.wake_up(wait=True)
     robot.walk_distance(0.3)  # [m]
     robot.rest()
 ```
 
-More in [`examples/`](./examples/): `dance.py`, `walk.py` and `gamepad.py`. Each runs on the robot, or in MuJoCo with `--sim`.
+More demos are in [`examples/`](https://github.com/Mowibox/chromapi/tree/main/examples). Each examples run on the robot, or in MuJoCo with `--sim`.
 
-To keep the simulation open between runs of your script, start the simulation window on its own, then use `backend="sim-server"`:
+To keep a Chromapi simulation open between runs of your script, start the simulation window on its own, then use `backend="sim-server"`:
 
 ```bash
 chromapi sim              # On a terminal: launches the simulation and its window (--headless: none)
@@ -80,7 +90,7 @@ chromapi report                   # support report to attach to a message on Dis
 
 `chromapi --help` lists every command (`python -m chromapi` works too).
 
-`chromapi run` starts the robot and its web app, at `https://<robot-ip>:5000` from a phone or a PC on the same network.
+`chromapi run` starts the robot and its web app, at `https://<robot-name>.local:5000` (or `https://<robot-ip>:5000`) from a phone or a PC on the same network.
 
 The same code then runs on the robot with `Chromapi(backend="hardware")`, which talks to the motherboard over UART communication.
 
@@ -88,12 +98,12 @@ The same code then runs on the robot with `Chromapi(backend="hardware")`, which 
 
 | Resource | Description | Location | Status |
 | :--- | :--- | :--- | :--- |
-| **📋 Bill of Materials** | Complete hardware, electronics, and 3D printed parts list to build Chromapi from scratch. | [Chroma Website](https://mowibox.github.io/chroma/en/chromapi/bom/) | **Available** |
-| **💻 Software API** | Python control framework, hardware interfaces, and kinematic solvers. | [`/src/chromapi`](./src/chromapi/) | *Work in Progress* |
+| **📋 Bill of Materials** | Complete hardware, electronics, and 3D printed parts list to build Chromapi from scratch. | [Chroma Website](https://mowibox.github.io/chroma/en/chromapi/build/robot-bom/) | **Available** |
+| **💻 Software API** | Python control framework, hardware interfaces, and kinematic solvers. | [`/src/chromapi`](https://github.com/Mowibox/chromapi/tree/main/src/chromapi) | **v1 Available** |
 | **📐 CAD Model** | 3D Mechanical design and robot assembly workspace. | [Onshape Document](https://cad.onshape.com/documents/3b2f6609101a115f427bb3a2/w/dda5699ddfe216cfbe74c22b/e/50bb405a7750d04ab1c412db?renderMode=0&uiState=6a7266a5caff22fc791d5f8b) | **Available** |
-| **📖 Documentation** | Specifications, design notes and communication protocol. | [Chroma Website](https://mowibox.github.io/chroma/en/chromapi/) | **Available** |
-| **🛠️ Hardware Utilities** | `chromapi` command: health check, servo setup and calibration tools. | [`/src/chromapi/utils`](./src/chromapi/utils) | **Available** |
-| **🤖 Simulation Models** | URDF and MJCF models for MuJoCo simulation. | [`/src/chromapi/model`](./src/chromapi/model) | **Available** |
+| **📖 Documentation** | Getting started, build guide, SDK tutorials, hardware specifications and communication protocol. | [Chroma Website](https://mowibox.github.io/chroma/en/chromapi/) | **Available** |
+| **🛠️ Hardware Utilities** | `chromapi` command: health check, servo setup and calibration tools. | [`/src/chromapi/utils`](https://github.com/Mowibox/chromapi/tree/main/src/chromapi/utils) | **Available** |
+| **🤖 Simulation Models** | URDF and MJCF models for MuJoCo simulation. | [`/src/chromapi/model`](https://github.com/Mowibox/chromapi/tree/main/src/chromapi/model) | **Available** |
 | **⚡ Electronics** | Custom PCB files, schematics, and low-level firmware. | [`chromapi_motherboard` repository](https://github.com/Mowibox/chromapi_motherboard) | **Available** |
 
 ## Authors
@@ -111,7 +121,7 @@ This project has been made possible thanks to the sponsors listed below. Their c
 
 | | |
 | :---: | :---: |
-| <a href="https://www.pcbway.com"><img src="./assets/pcbway.jpg" width="150" alt="PCBWay"></a> | <a href="https://www.ensea.fr"><img src="./assets/ensea.jpg" width="150" alt="ENSEA"></a> |
+| <a href="https://www.pcbway.com"><img src="https://raw.githubusercontent.com/Mowibox/chromapi/main/assets/pcbway.jpg" width="150" alt="PCBWay"></a> | <a href="https://www.ensea.fr"><img src="https://raw.githubusercontent.com/Mowibox/chromapi/main/assets/ensea.jpg" width="150" alt="ENSEA"></a> |
 | [**PCBWay**](https://www.pcbway.com) | [**ENSEA**](https://www.ensea.fr) |
 | PCB Manufacturing & Assembly | 3D Printing & Prototyping |
 
@@ -138,9 +148,9 @@ This repository is multi-licensed:
 
 | Part | Path | License |
 | :--- | :--- | :--- |
-| Software (Python SDK, tools, tests, Raspberry Pi setup) | [`/src`](./src/), [`/tests`](./tests/), [`/deploy`](./deploy/) | [Apache 2.0](./LICENSE) |
-| Robot description (URDF, MJCF, configuration files) | [`/src/chromapi/model`](./src/chromapi/model/) | [Apache 2.0](./LICENSE) |
-| 3D meshes (`.stl`, `.part`) | [`/src/chromapi/model/*/assets`](./src/chromapi/model/) | [CC BY-NC-SA 4.0](./src/chromapi/model/LICENSE) |
-| Documentation and media (README, images, GIFs) | [`/assets`](./assets/), this README | [CC BY-NC-SA 4.0](./src/chromapi/model/LICENSE) |
+| Software (Python SDK, tools, tests, Raspberry Pi setup) | [`/src`](https://github.com/Mowibox/chromapi/tree/main/src), [`/tests`](https://github.com/Mowibox/chromapi/tree/main/tests), [`/deploy`](https://github.com/Mowibox/chromapi/tree/main/deploy) | [Apache 2.0](https://github.com/Mowibox/chromapi/blob/main/LICENSE) |
+| Robot description (URDF, MJCF, configuration files) | [`/src/chromapi/model`](https://github.com/Mowibox/chromapi/tree/main/src/chromapi/model) | [Apache 2.0](https://github.com/Mowibox/chromapi/blob/main/LICENSE) |
+| 3D meshes (`.stl`, `.part`) | [`/src/chromapi/model/*/assets`](https://github.com/Mowibox/chromapi/tree/main/src/chromapi/model) | [CC BY-NC-SA 4.0](https://github.com/Mowibox/chromapi/blob/main/src/chromapi/model/LICENSE) |
+| Documentation and media (README, images, GIFs) | [`/assets`](https://github.com/Mowibox/chromapi/tree/main/assets), this README | [CC BY-NC-SA 4.0](https://github.com/Mowibox/chromapi/blob/main/src/chromapi/model/LICENSE) |
 
-**Third-party content keeps its own license:** meshes of off-the-shelf parts (Raspberry Pi 4, IMX219 camera, Noctua NF-A4x10 fan, WS2812B ring, 18650 battery, speaker, microswitch, power switch, connectors, screws) come from their respective manufacturers. The ENSEA and PCBWay logos in [`/assets`](./assets/) are trademarks of their respective owners.
+**Third-party content keeps its own license:** meshes of off-the-shelf parts (Raspberry Pi 4, IMX219 camera, Noctua NF-A4x10 fan, WS2812B ring, 18650 battery, speaker, microswitch, power switch, connectors, screws) come from their respective manufacturers. The ENSEA and PCBWay logos in [`/assets`](https://github.com/Mowibox/chromapi/tree/main/assets) are trademarks of their respective owners.
