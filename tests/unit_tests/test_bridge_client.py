@@ -104,8 +104,10 @@ def test_set_torque_frame(bridge: BridgeClient, mock_serial: DummySerial) -> Non
         bridge.set_torque(True, [13])
 
 
-def test_sleep_feeds_link_watchdog(bridge: BridgeClient, mock_serial: DummySerial) -> None:
-    """A ping at least every 50 ms, well inside the firmware's 100 ms link timeout."""
+def test_sleep_feeds_link_watchdog(bridge: BridgeClient, mock_serial: DummySerial,
+                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    """A ping every _LINK_KEEPALIVE_S (shortened to 50 ms here to keep the test fast)."""
+    monkeypatch.setattr("chromapi.hardware.motherboard_bridge._LINK_KEEPALIVE_S", 0.05)
     sent = []
     bridge._send_frame = lambda cmd, payload=b'': sent.append((time.monotonic(), cmd))
     t0 = time.monotonic()

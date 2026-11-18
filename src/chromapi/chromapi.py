@@ -803,7 +803,7 @@ class Chromapi:
         """
         self.config = load_config(config_path)
         control_cfg = self.config.get("control", {})
-        self.loop_hz: float = float(control_cfg.get("loop_hz", 50.0))  # [Hz]
+        self.loop_hz: float = float(control_cfg.get("loop_hz", 100.0))  # [Hz]
         self.wake_up_duration_s: float = float(control_cfg.get("wake_up_duration_s", 3.5))  # [s]
         self.rest_duration_s: float = float(control_cfg.get("rest_duration_s", 2.0))  # [s]
         self.approach_duration_s: float = float(control_cfg.get("approach_duration_s", 2.0))  # [s]

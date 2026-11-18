@@ -12,8 +12,8 @@ configs:
 
 # Chromaposes - Chromapi Moves Library
 
-Recorded moves of the quadruped robot Chromapi quadruped, 
-There is two categories of poses:
+Recorded moves of the quadruped robot Chromapi.
+There are two categories of poses:
 
 - body moves (mood gestures): the chassis moves over the four planted feet and comes back;
 - leg moves: the weight shifts onto three feet and a front leg moves.

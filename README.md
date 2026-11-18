@@ -33,7 +33,7 @@
 Three ways in, each detailed on the [Chroma website](https://mowibox.github.io/chroma/en/chromapi/):
 
 * **Build the robot:** print the parts and order the components from the [Bill of Materials](https://mowibox.github.io/chroma/en/chromapi/build/robot-bom/), then follow the [build guide](https://mowibox.github.io/chroma/en/chromapi/build/).
-* **Set up a robot you have built:** flash the Chromapi OS image on a microSD card with Raspberry Pi Imager ([installation](https://mowibox.github.io/chroma/en/chromapi/getting-started/installation/)), then follow the [first start](https://mowibox.github.io/chroma/en/chromapi/getting-started/first-start/) and drive it from your phone with the [web app](https://mowibox.github.io/chroma/en/chromapi/getting-started/web-app/).
+* **Set up a robot you have built:** flash the Chromapi OS image on a microSD card with Raspberry Pi Imager ([installation](https://mowibox.github.io/chroma/en/chromapi/getting-started/installation/)), then follow the [first start steps](https://mowibox.github.io/chroma/en/chromapi/getting-started/first-start/) and drive it from your phone with the [web app](https://mowibox.github.io/chroma/en/chromapi/getting-started/web-app/).
 * **Program it, with or without a robot:** install the SDK below and start in [simulation](https://mowibox.github.io/chroma/en/chromapi/developing/simulation/).
 
 ### Installation
@@ -44,7 +44,7 @@ Requires Python 3.12 or later.
 pip install "chromapi[all]"    # or, in a uv project: uv add "chromapi[all]"
 ```
 
-Extras: `audio` enables sounds on the robot, `sim` installs MuJoCo for simulation, `rl` installs ONNX Runtime to run trained policies *(comming soon!)*, and `hub` downloads moves from Hugging Face datasets.
+Extras: `audio` enables sounds on the robot, `sim` installs MuJoCo for simulation, `rl` installs ONNX Runtime to run trained policies *(coming soon!)*, and `hub` downloads moves from Hugging Face datasets.
 
 To contribute or run the examples, install from source instead:
 
@@ -65,13 +65,13 @@ with Chromapi(backend="mujoco", launch_viewer=True) as robot:
     robot.rest()
 ```
 
-More demos are in [`examples/`](https://github.com/Mowibox/chromapi/tree/main/examples). Each examples run on the robot, or in MuJoCo with `--sim`.
+More demos are in [`examples/`](https://github.com/Mowibox/chromapi/tree/main/examples). Each example runs on the robot, or in MuJoCo with `--sim`.
 
 To keep a Chromapi simulation open between runs of your script, start the simulation window on its own, then use `backend="sim-server"`:
 
 ```bash
-chromapi sim              # On a terminal: launches the simulation and its window (--headless: none)
-python my_script.py       # On another terminal: Chromapi(backend="sim-server")
+chromapi sim              # In a terminal: launches the simulation and its window (--headless: no window)
+python my_script.py       # In another terminal: Chromapi(backend="sim-server")
 ```
 
 ### On the real robot
@@ -92,15 +92,15 @@ chromapi report                   # support report to attach to a message on Dis
 
 `chromapi run` starts the robot and its web app, at `https://<robot-name>.local:5000` (or `https://<robot-ip>:5000`) from a phone or a PC on the same network.
 
-The same code then runs on the robot with `Chromapi(backend="hardware")`, which talks to the motherboard over UART communication.
+The same code then runs on the robot with `Chromapi(backend="hardware")`, which talks to the motherboard over UART.
 
 ## Project overview
 
 | Resource | Description | Location | Status |
 | :--- | :--- | :--- | :--- |
-| **📋 Bill of Materials** | Complete hardware, electronics, and 3D printed parts list to build Chromapi from scratch. | [Chroma Website](https://mowibox.github.io/chroma/en/chromapi/build/robot-bom/) | **Available** |
+| **📋 Bill of Materials** | Complete hardware, electronics, and 3D-printed parts list to build Chromapi from scratch. | [Chroma Website](https://mowibox.github.io/chroma/en/chromapi/build/robot-bom/) | **Available** |
 | **💻 Software API** | Python control framework, hardware interfaces, and kinematic solvers. | [`/src/chromapi`](https://github.com/Mowibox/chromapi/tree/main/src/chromapi) | **v1 Available** |
-| **📐 CAD Model** | 3D Mechanical design and robot assembly workspace. | [Onshape Document](https://cad.onshape.com/documents/3b2f6609101a115f427bb3a2/w/dda5699ddfe216cfbe74c22b/e/50bb405a7750d04ab1c412db?renderMode=0&uiState=6a7266a5caff22fc791d5f8b) | **Available** |
+| **📐 CAD Model** | 3D mechanical design and robot assembly workspace. | [Onshape Document](https://cad.onshape.com/documents/3b2f6609101a115f427bb3a2/w/dda5699ddfe216cfbe74c22b/e/50bb405a7750d04ab1c412db?renderMode=0&uiState=6a7266a5caff22fc791d5f8b) | **Available** |
 | **📖 Documentation** | Getting started, build guide, SDK tutorials, hardware specifications and communication protocol. | [Chroma Website](https://mowibox.github.io/chroma/en/chromapi/) | **Available** |
 | **🛠️ Hardware Utilities** | `chromapi` command: health check, servo setup and calibration tools. | [`/src/chromapi/utils`](https://github.com/Mowibox/chromapi/tree/main/src/chromapi/utils) | **Available** |
 | **🤖 Simulation Models** | URDF and MJCF models for MuJoCo simulation. | [`/src/chromapi/model`](https://github.com/Mowibox/chromapi/tree/main/src/chromapi/model) | **Available** |
@@ -129,14 +129,14 @@ This project has been made possible thanks to the sponsors listed below. Their c
 
 ---
 
-> Huge thanks to everyone who gave me feedback on the Chromapi's design, shared ideas, or simply took the time to brainstorm with me. This project wouldn't be where it is today without your help!
+> Huge thanks to everyone who gave me feedback on Chromapi's design, shared ideas, or simply took the time to brainstorm with me. This project wouldn't be where it is today without your help!
 
 ## Contributions
 
 Contributions are always welcome!
 
-* **Report Issues:** Found an error or have a feature request? Create a new issue [here.](https://github.com/Mowibox/chromapi/issues/new/choose)
-* **Fix Bugs & Add Features:** Find out where you can lend a hand by checking out [existing issues.](https://github.com/Mowibox/chromapi/issues)
+* **Report Issues:** Found an error or have a feature request? Create a new issue [here](https://github.com/Mowibox/chromapi/issues/new/choose).
+* **Fix Bugs & Add Features:** Find out where you can lend a hand by checking out [existing issues](https://github.com/Mowibox/chromapi/issues).
 
 Before opening a pull request, don't forget to run the linters and unit tests: `uv run ruff check . && uv run mypy && uv run pytest`.
 
