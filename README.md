@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Chromapi logo" src="https://raw.githubusercontent.com/Mowibox/chromapi/main/assets/chromapi_logo.png" width="220">
+  <img alt="Chromapi logo" src="https://media.githubusercontent.com/media/Mowibox/chromapi/main/assets/chromapi_logo.png" width="220">
 </p>
 
 <h1 align="center">Chromapi</h1>
@@ -25,7 +25,7 @@
 </p>
 
 <p align="center">
-  <img alt="Chromapi dancing" src="https://raw.githubusercontent.com/Mowibox/chromapi/main/assets/chromapi.gif"/>
+  <img alt="Chromapi dancing" src="https://media.githubusercontent.com/media/Mowibox/chromapi/main/assets/chromapi.gif"/>
 </p>
 
 ## Getting started
@@ -121,7 +121,7 @@ This project has been made possible thanks to the sponsors listed below. Their c
 
 | | |
 | :---: | :---: |
-| <a href="https://www.pcbway.com"><img src="https://raw.githubusercontent.com/Mowibox/chromapi/main/assets/pcbway.jpg" width="150" alt="PCBWay"></a> | <a href="https://www.ensea.fr"><img src="https://raw.githubusercontent.com/Mowibox/chromapi/main/assets/ensea.jpg" width="150" alt="ENSEA"></a> |
+| <a href="https://www.pcbway.com"><img src="https://media.githubusercontent.com/media/Mowibox/chromapi/main/assets/pcbway.jpg" width="150" alt="PCBWay"></a> | <a href="https://www.ensea.fr"><img src="https://media.githubusercontent.com/media/Mowibox/chromapi/main/assets/ensea.jpg" width="150" alt="ENSEA"></a> |
 | [**PCBWay**](https://www.pcbway.com) | [**ENSEA**](https://www.ensea.fr) |
 | PCB Manufacturing & Assembly | 3D Printing & Prototyping |
 
