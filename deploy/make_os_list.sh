@@ -11,7 +11,7 @@ set -euo pipefail
 IMAGE="${1:?usage: $0 chromapi.img.xz [url]}"
 DEPLOY="$(cd "$(dirname "$0")" && pwd)"
 VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$DEPLOY/../pyproject.toml")"
-URL="${2:-https://github.com/Mowibox/Chromapi/releases/download/v$VERSION/chromapi.img.xz}"
+URL="${2:-https://github.com/Mowibox/chromapi/releases/download/v$VERSION/chromapi.img.xz}"
 OUT="$DEPLOY/os_list.json"
 
 echo "Calculating checksums of $IMAGE..."
@@ -32,7 +32,7 @@ json.dump({
     "os_list": [{
         "name": "Chromapi OS $VERSION",
         "description": "Ubuntu Server 24.04 LTS with Chromapi SDK",
-        "icon": "https://raw.githubusercontent.com/Mowibox/Chromapi/main/src/chromapi/web/static/logo.png",
+        "icon": "https://raw.githubusercontent.com/Mowibox/chromapi/main/src/chromapi/web/static/logo.png",
         "url": "$URL",
         "extract_size": $(xz --robot -l "$IMAGE" | awk '/^totals/ {print $5}'),
         "extract_sha256": "$(xz -dc -T0 "$IMAGE" | sha256sum | cut -d' ' -f1)",
