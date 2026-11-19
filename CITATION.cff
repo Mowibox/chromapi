@@ -8,13 +8,13 @@ authors:
     orcid: "https://orcid.org/0009-0002-9812-5540"
     website: "https://mowibox.github.io"
 version: 1.0.0
+date-released: 2026-11-19
 doi: 10.5281/zenodo.24356978  # concept DOI: always resolves to the latest version
-license: Apache-2.0
 repository-code: "https://github.com/Mowibox/chromapi"
 url: "https://mowibox.github.io/chroma/en/chromapi/"
 abstract: >-
-  Chromapi is an fully 3D-printable open-source 12-DoF quadruped robot built around a Raspberry Pi and a custom STM32 motherboard.
-  This repository holds its Python SDK (real robot and MuJoCo simulation, locomotion, inverse kinematics), 
+  Chromapi is a fully 3D-printable open-source 12-DoF quadruped robot built around a Raspberry Pi and a custom STM32 motherboard.
+  This repository holds its Python SDK (real robot and MuJoCo simulation, locomotion, inverse kinematics),
   the Raspberry Pi set-up and its URDF and MJCF models for reinforcement learning applications.
 keywords:
   - robotics
