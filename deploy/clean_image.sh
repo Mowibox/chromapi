@@ -49,6 +49,8 @@ sudo rm -f /etc/netplan/*.yaml /var/lib/chromapi/network-config.sha256
 sudo rm -rf /etc/NetworkManager/system-connections/*
 # Written back by chromapi-boot after the first boot: until then cloud-init may set the name of user-data
 sudo rm -f /etc/cloud/cloud.cfg.d/99-chromapi.cfg
+# Imager appends its Wi-Fi country and a cloud-init instance id at each flash: drop them, the next flash adds its own
+sudo sed -i -E 's/ ?cfg80211\.ieee80211_regdom=[A-Z]{2}//g; s/ ?ds=nocloud;i=[^ ]*//g' "$BOOT/cmdline.txt"
 sudo tee "$BOOT/user-data" >/dev/null <<EOF
 #cloud-config
 # Chromapi image: read once, at the first boot. The Wi-Fi is in network-config, next to this file.
