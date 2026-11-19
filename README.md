@@ -21,6 +21,7 @@
   <a href="https://github.com/Mowibox/chromapi/actions/workflows/lint.yml"><img alt="CI: Linters" src="https://github.com/Mowibox/chromapi/actions/workflows/lint.yml/badge.svg"></a>
   <a href="https://github.com/Mowibox/chromapi/actions/workflows/pytest.yml"><img alt="CI: Unit Tests" src="https://github.com/Mowibox/chromapi/actions/workflows/pytest.yml/badge.svg"></a>
   <img alt="Issues" src="https://img.shields.io/github/issues/Mowibox/chromapi">
+  <a href="https://doi.org/10.5281/zenodo.24356978"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.24356978.svg"></a>
   <img alt="Stars" src="https://img.shields.io/github/stars/Mowibox/chromapi?style=social">
 </p>
 
@@ -153,7 +154,8 @@ If you use Chromapi in your research, please cite it as below:
   month = nov,
   year    = {2026},
   version = {1.0.0},
-  url     = {https://github.com/Mowibox/chromapi}
+  url     = {https://github.com/Mowibox/chromapi},
+  doi     = {10.5281/zenodo.24356978}
   howpublished = "\url{https://github.com/Mowibox/chromapi}",
 }
 ```
