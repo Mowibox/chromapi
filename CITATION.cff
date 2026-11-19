@@ -8,9 +8,7 @@ authors:
     orcid: "https://orcid.org/0009-0002-9812-5540"
     website: "https://mowibox.github.io"
 version: 1.0.0
-license:
-  - Apache-2.0
-  - CC-BY-NC-SA-4.0
+license: Apache-2.0
 repository-code: "https://github.com/Mowibox/chromapi"
 url: "https://mowibox.github.io/chroma/en/chromapi/"
 abstract: >-
