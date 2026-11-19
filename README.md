@@ -142,6 +142,22 @@ Before opening a pull request, don't forget to run the linters and unit tests: `
 
 _By submitting a contribution, you agree that it is published under the license of the part it belongs to._
 
+## Citation
+
+If you use Chromapi in your research, please cite it as below:
+
+```bibtex
+@software{othiongane_chromapi,
+  author  = {Thiongane, Ousmane},
+  title   = {Chromapi: an open-source 12-DoF quadruped robot},
+  month = dec,
+  year    = {2026},
+  version = {1.0.0},
+  url     = {https://github.com/Mowibox/chromapi}
+  howpublished = "\url{https://github.com/Mowibox/chromapi}",
+}
+```
+
 ## License
 
 This repository is multi-licensed:

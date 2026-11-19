@@ -33,6 +33,42 @@ if [ -d "$(dirname "$NAME_FILE")" ] && [ "$(cat "$NAME_FILE" 2>/dev/null)" != "$
     echo "$host" >"$NAME_FILE"
 fi
 
+# Wi-Fi passphrases -> their WPA-PSK key (64 hex digits, accepted by netplan as is): the card read on a PC no longer
+# shows a passphrase reused elsewhere. The key still joins that one network. In place, comments kept; before the
+# change check below, so an edited file is applied already hashed. WPA3 (SAE) needs the passphrase: left as is.
+for file in "$NETWORK_CONFIG" /etc/netplan/50-cloud-init.yaml; do
+    [ -f "$file" ] || continue
+    python3 - "$file" <<'PY' || echo "Network: could not hash the Wi-Fi passphrases of $file" >&2
+import hashlib, os, re, sys, yaml
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+config = yaml.safe_load(text)
+config = config.get("network", config) if isinstance(config, dict) else {}
+new = text
+for iface in (config.get("wifis") or {}).values():
+    for ssid, ap in ((iface or {}).get("access-points") or {}).items():
+        ap = ap or {}
+        auth = ap.get("auth") if isinstance(ap.get("auth"), dict) else {}
+        password = auth.get("password", ap.get("password"))
+        if not isinstance(password, str) or not 8 <= len(password) <= 63:
+            continue  # open network, or already a 64-hex key
+        if auth.get("key-management", "psk") != "psk":
+            continue
+        psk = hashlib.pbkdf2_hmac("sha1", password.encode(), str(ssid).encode(), 4096, 32).hex()
+        new = re.sub(r"(password:[ \t]*)([\"']?)" + re.escape(password) + r"\2[ \t]*$",
+                     lambda m: f'{m.group(1)}"{psk}"', new, flags=re.M)
+if new != text:
+    with open(path + ".new", "w", encoding="utf-8") as f:
+        f.write(new)
+    try:
+        os.chmod(path + ".new", os.stat(path).st_mode & 0o777)  # 600 for netplan; FAT has no modes
+    except OSError:
+        pass
+    os.replace(path + ".new", path)
+    print(f"Network: Wi-Fi passphrases of {path} replaced by their key")
+PY
+done
+
 if [ -f "$NETWORK_CONFIG" ]; then
     mkdir -p "$(dirname "$STAMP")"
     sum="$(sha256sum "$NETWORK_CONFIG" | cut -d' ' -f1)"
