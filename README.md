@@ -150,7 +150,7 @@ If you use Chromapi in your research, please cite it as below:
 @software{othiongane_chromapi,
   author  = {Thiongane, Ousmane},
   title   = {Chromapi: an open-source 12-DoF quadruped robot},
-  month = dec,
+  month = nov,
   year    = {2026},
   version = {1.0.0},
   url     = {https://github.com/Mowibox/chromapi}
