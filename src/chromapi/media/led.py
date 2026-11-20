@@ -32,8 +32,10 @@ logger = logging.getLogger(__name__)
 Color = Tuple[int, int, int]
 RenderFn = Callable[[Any, float], None]  # (robot, t [s]) -> sets the ring
 
-BRIGHTNESS = 0.35  # global scale: full brightness is blinding and draws ~1 A from the 5 V rail
-IDLE = (182, 5, 252)  # violet-pink, Chromapi's default idle colour
+#: Global scale of the ring: full brightness is blinding and draws ~1 A from the 5 V rail.
+BRIGHTNESS = 0.35
+#: Chromapi's default idle colour (R, G, B), violet-pink.
+IDLE = (182, 5, 252)
 _idle: Color = IDLE
 _rainbow = False
 RAINBOW_IDLE_S = 4.0  # [s] per turn
