@@ -55,3 +55,13 @@ jobs:
         uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
           skip-existing: true  # a release published again (e.g. for Zenodo) must not fail on an uploaded version
+
+  notify-site:  # regenerates the API reference of the Chroma website (deploy.yml of Mowibox/chroma)
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger the website deployment
+        run: gh api repos/Mowibox/chroma/dispatches -f event_type=chromapi-release
+        env:
+          GH_TOKEN: ${{ secrets.CHROMA_DISPATCH_TOKEN }}
