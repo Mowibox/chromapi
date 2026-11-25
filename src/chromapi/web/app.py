@@ -587,8 +587,8 @@ class Teleop:
         if ok and isinstance(self.robot.backend, HardwareBackend):
             self.robot.config = load_config()
             self.robot.backend.apply_calibration(self.robot.config)
-        if self.robot.connect():
-            self.robot.disable_motors()  # the servo sweep leaves torque on
+        if self.robot.connect() and not (ok and job.startswith("setup_servo_")):
+            self.robot.disable_motors()  # the servo sweep leaves torque on; a set-up servo stays held at its center
         self.ring.start()
         last = log.splitlines()[-1] if log else ""
         outcome = "Cancelled" if cancelled else "Done" if ok else "Failed"

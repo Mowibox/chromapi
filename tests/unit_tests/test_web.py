@@ -261,6 +261,11 @@ def test_maintenance_hands_the_port_over_then_applies_the_calibration(monkeypatc
     assert robot.backend.applied == {"servos": {}} and teleop.maintenance["ok"]
     assert teleop.status == "Done: [SUCCESS] Written"
 
+    robot.calls.clear()
+    teleop._do("setup_servo_12")  # a set-up servo is left held at its center, for its horn to be mounted
+    _wait_maintenance(teleop)
+    assert ran[-1][-4:] == ["motors", "setup", "--id", "12"] and "limp" not in robot.calls
+
 
 def test_maintenance_cancel_interrupts_the_tool_but_not_a_flash(monkeypatch, tmp_path):
     """Cancel is a Ctrl-C to the tool, acted on at once; the robot is taken back as after any job."""

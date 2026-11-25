@@ -29,6 +29,9 @@ REG_ACCEL = 41
 REG_TORQUE = 40
 REG_GOAL_POSITION = 42
 REG_LOCK = 55
+REG_PRESENT_POSITION = 56
+CENTER_TOLERANCE = 20  # [step]
+CENTER_TIMEOUT_S = 2.0  # [s] a half turn takes ~0.6 s
 # Undocumented: acceleration cap of the internal motion profile.
 REG_MAX_ACCEL = 85
 MAX_ACCEL = 254
@@ -122,6 +125,15 @@ def setup_one(bridge: BridgeClient, new_id: int, ids: List[int]) -> int:
     # Held at its center (q=0) so that its horn and leg are mounted straight, whatever position it came in
     bridge.write_servo_register(new_id, REG_GOAL_POSITION, 2, STS3215_CENTER_STEP)
     bridge.write_servo_register(new_id, REG_TORQUE, 1, 1)
+    # Wait for it: the web app takes the robot back right after, holding each servo where it reads it
+    deadline = time.monotonic() + CENTER_TIMEOUT_S
+    while time.monotonic() < deadline:
+        position = bridge.read_servo_register(new_id, REG_PRESENT_POSITION, 2)
+        if position is not None and abs(position - STS3215_CENTER_STEP) <= CENTER_TOLERANCE:
+            break
+        time.sleep(0.05)
+    else:
+        print(f"[!] Servo {new_id} did not reach its center (reads {position}): is something blocking it?")
     print(f"[SUCCESS] Servo {new_id} set up" + (". Turn the robot off and on again for the changes to take effect."
                                                 if new_id == min(ids) else "."))
     return 0

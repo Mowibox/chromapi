@@ -19,6 +19,8 @@ class Bus:
                 self.servos[value] = self.servos.pop(i)
 
     def read_servo_register(self, i, reg, size):
+        if reg == sm.REG_PRESENT_POSITION:  # already where it was sent
+            reg = sm.REG_GOAL_POSITION
         return self.servos.get(i, {}).get(reg)
 
 
