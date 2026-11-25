@@ -10,7 +10,7 @@ import argparse
 import re
 import subprocess
 import time
-from typing import List, Tuple
+from typing import List, Set, Tuple
 
 SCAN_S = 20  # [s]
 STEP_TIMEOUT_S = 30  # [s]
@@ -45,16 +45,22 @@ def _reached(mac: str, fields: Tuple[str, ...]) -> bool:
         time.sleep(0.5)
 
 
-def unpaired_gamepads() -> List[Tuple[str, str]]:
-    """(MAC, name) of the gamepads BlueZ knows of and has not paired yet."""
+def gamepads(paired: bool = False) -> List[Tuple[str, str]]:
+    """(MAC, name) of the gamepads BlueZ knows of, unpaired ones (or paired ones)."""
     found = []
     for line in _ctl("devices")[1].splitlines():
         match = _DEVICE.match(line.strip())
         if match:
             info = _ctl("info", match[1])[1]
-            if "Icon: input-gaming" in info and "Paired: no" in info:
+            if "Icon: input-gaming" in info and f"Paired: {'yes' if paired else 'no'}" in info:
                 found.append((match[1], match[2]))
     return found
+
+
+def _scan(scan_s: float) -> Set[str]:
+    """MACs of the devices seen advertising during the scan."""
+    output = _ctl("--timeout", f"{scan_s:.0f}", "scan", "on", timeout_s=scan_s + STEP_TIMEOUT_S)[1]
+    return set(re.findall(r"Device ([0-9A-F:]{17})", output))
 
 
 def main() -> int:
@@ -76,12 +82,19 @@ def _pair() -> int:
         print(f"Bluetooth does not start: {output.splitlines()[-1] if output else 'no adapter'}")
         return 1
     print(f"Looking for a controller in pairing mode for {args.scan:.0f} s...", flush=True)
-    _ctl("--timeout", f"{args.scan:.0f}", "scan", "on", timeout_s=args.scan + STEP_TIMEOUT_S)
-    gamepads = unpaired_gamepads()
-    if not gamepads:
+    seen = _scan(args.scan)
+    # A paired pad advertising is in pairing mode: it was paired elsewhere since, so our key is stale
+    stale = [(mac, name) for mac, name in gamepads(paired=True) if mac in seen]
+    for mac, name in stale:
+        print(f"{name} ({mac}) is paired with an old key: forgetting it", flush=True)
+        _ctl("remove", mac)
+    if stale:
+        _scan(args.scan)  # BlueZ forgot it: find it again
+    found = gamepads()
+    if not found:
         print("No controller found: hold its pair button until its light flashes fast, then try again")
         return 1
-    mac, name = gamepads[0]
+    mac, name = found[0]
     for step, fields, open_s in STEPS:
         print(f"{step} {name} ({mac})", flush=True)
         keep_open = ("--agent", "NoInputNoOutput", "--timeout", f"{open_s:.0f}") if open_s else ()

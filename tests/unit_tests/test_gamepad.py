@@ -208,3 +208,41 @@ def test_light_bar_writes_either_led_layout_and_puts_the_colour_back(tmp_path):
     assert [p.read_text() for p in rgb] == ["255", "255 0 0"]
     pad.stop()
     assert [p.read_text() for p in rgb] == ["0", "0 0 255"]
+
+
+def test_pairing_forgets_a_paired_pad_seen_in_pairing_mode(monkeypatch, capsys):
+    """A paired pad that advertises was paired elsewhere since: its key is removed, then it is paired again."""
+    import sys
+
+    from chromapi.input import pairing
+
+    pad, off_pad = "CC:CC:CC:CC:CC:CC", "DD:DD:DD:DD:DD:DD"
+    paired = {pad, off_pad}
+    done = set()
+    calls = []
+
+    def ctl(*args, timeout_s=0):
+        args = [a for a in args if a not in ("--agent", "NoInputNoOutput", "--timeout") and not a.isdigit()]
+        calls.append(tuple(args))
+        command = args[0]
+        if command == "scan":
+            return True, f"[CHG] Device {pad} RSSI: -60"  # off_pad is switched off: not seen
+        if command == "devices":
+            return True, f"Device {pad} Wireless Controller\nDevice {off_pad} Other pad"
+        if command == "info":
+            mac = args[1]
+            state = {"Paired": mac in paired, "Trusted": "trust" in done, "Connected": "connect" in done}
+            return True, "Icon: input-gaming\n" + "\n".join(f"{k}: {'yes' if v else 'no'}" for k, v in state.items())
+        if command == "remove":
+            paired.discard(args[1])
+        if command == "pair":
+            paired.add(args[1])
+        done.add(command)
+        return True, ""
+
+    monkeypatch.setattr(pairing, "_ctl", ctl)
+    monkeypatch.setattr(pairing, "CHECK_S", 0.0)
+    monkeypatch.setattr(sys, "argv", ["pair"])
+    assert pairing.main() == 0
+    assert ("remove", pad) in calls and ("remove", off_pad) not in calls
+    assert [c for c in calls if c[0] in ("pair", "trust", "connect")] == [("trust", pad), ("pair", pad), ("connect", pad)]
