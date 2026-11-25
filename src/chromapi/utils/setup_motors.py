@@ -101,19 +101,24 @@ def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> Dict[s
     print("="*40)
     return wrong
 
+def _answers(bridge: BridgeClient, servo_id: int, tries: int = 3) -> bool:
+    """Ping, again if a frame got lost on the bus."""
+    return any(bridge.ping_servo(servo_id) for _ in range(tries))
+
+
 def setup_one(bridge: BridgeClient, new_id: int, ids: List[int]) -> int:
     """Assembly step: the new servo (ID 1) becomes ``new_id``; steps go from the highest ID down, one servo at a time."""
     if new_id not in ids:
         print(f"[!] ID {new_id} is not one of the robot's servos {ids} (config servos.id_map).")
         return 1
-    missing = [i for i in ids if i > new_id and not bridge.ping_servo(i)]
+    missing = [i for i in ids if i > new_id and not _answers(bridge, i)]
     if missing:
         print(f"[!] Servos set up before not answering: {missing}. Check the chain, or set them up again.")
         return 1
-    if new_id != FACTORY_ID and bridge.ping_servo(new_id):
+    if new_id != FACTORY_ID and _answers(bridge, new_id):
         print(f"[*] A servo already answers at ID {new_id}: rewriting its registers.")
         target = new_id
-    elif bridge.ping_servo(FACTORY_ID):
+    elif _answers(bridge, FACTORY_ID):
         target = FACTORY_ID
     else:
         print(f"[!] No servo answers at the factory ID {FACTORY_ID}: plug in the new servo.")
@@ -123,17 +128,20 @@ def setup_one(bridge: BridgeClient, new_id: int, ids: List[int]) -> int:
         print(f"[!] Read back different from what was written (lost frame?): {wrong}. Run again.")
         return 1
     # Held at its center (q=0) so that its horn and leg are mounted straight, whatever position it came in
-    bridge.write_servo_register(new_id, REG_GOAL_POSITION, 2, STS3215_CENTER_STEP)
-    bridge.write_servo_register(new_id, REG_TORQUE, 1, 1)
-    # Wait for it: the web app takes the robot back right after, holding each servo where it reads it
+    # Wait for it: the web app takes the robot back right after, holding each servo where it reads it.
+    # Sent again on every poll: a lost frame on the bus would otherwise leave it where it was.
     deadline = time.monotonic() + CENTER_TIMEOUT_S
     while time.monotonic() < deadline:
+        bridge.write_servo_register(new_id, REG_GOAL_POSITION, 2, STS3215_CENTER_STEP)
+        bridge.write_servo_register(new_id, REG_TORQUE, 1, 1)
         position = bridge.read_servo_register(new_id, REG_PRESENT_POSITION, 2)
         if position is not None and abs(position - STS3215_CENTER_STEP) <= CENTER_TOLERANCE:
             break
         time.sleep(0.05)
-    else:
-        print(f"[!] Servo {new_id} did not reach its center (reads {position}): is something blocking it?")
+    else:  # never left forcing against what blocks it: released, and the step fails
+        any(bridge.write_servo_register(new_id, REG_TORQUE, 1, 0) for _ in range(3))
+        print(f"[!] Servo {new_id} blocked before its center (reads {position}), released: free its leg and run again.")
+        return 1
     print(f"[SUCCESS] Servo {new_id} set up" + (". Turn the robot off and on again for the changes to take effect."
                                                 if new_id == min(ids) else "."))
     return 0

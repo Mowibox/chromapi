@@ -51,3 +51,27 @@ def test_refused_when_the_chain_or_the_new_servo_is_missing():
 def test_already_set_up_servo_keeps_its_id():
     bus = Bus(1, 12)  # a re-run of step 12, a new servo already on the bus
     assert sm.setup_one(bus, 12, IDS) == 0 and set(bus.servos) == {1, 12} and bus.servos[1] == {}
+
+
+def test_blocked_servo_is_released_and_the_step_fails(monkeypatch):
+    class Blocked(Bus):
+        def read_servo_register(self, i, reg, size):
+            return 1100 if reg == sm.REG_PRESENT_POSITION else super().read_servo_register(i, reg, size)
+
+    monkeypatch.setattr(sm, "CENTER_TIMEOUT_S", 0.1)
+    bus = Blocked(1)
+    assert sm.setup_one(bus, 12, IDS) == 1 and bus.servos[12][sm.REG_TORQUE] == 0
+
+
+def test_lost_center_command_is_sent_again():
+    class Lossy(Bus):
+        lost = False
+
+        def write_servo_register(self, i, reg, size, value):
+            if reg == sm.REG_GOAL_POSITION and not self.lost:
+                self.lost = True  # the first one never reaches the servo
+                return
+            super().write_servo_register(i, reg, size, value)
+
+    bus = Lossy(1)
+    assert sm.setup_one(bus, 12, IDS) == 0 and bus.servos[12][sm.REG_GOAL_POSITION] == sm.STS3215_CENTER_STEP
