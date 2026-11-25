@@ -40,6 +40,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Union,
 )
@@ -198,6 +199,7 @@ class HardwareBackend(RobotBackend):
         self._bridge = BridgeClient(port=port, baudrate=baudrate)
         self.firmware_version: Optional[str] = None  # "major.minor.patch", read by connect()
         self._misses: Dict[str, int] = {}  # consecutive bus cycles without an answer, per joint
+        self._answered: Set[str] = set()  # joints whose servo answered at least once
         self._missing_since: Dict[str, float] = {}  # [s] joints reported missing, since when
         self._id_map: Dict[str, int] = dict(servo_config["id_map"])
         self._sign: Dict[str, int] = dict(servo_config["sign"])
@@ -289,7 +291,12 @@ class HardwareBackend(RobotBackend):
             joint = self._id_to_joint.get(servo["id"])
             if joint is None:
                 continue
-            state.joint_positions[joint] = self._steps_to_rad(joint, servo["pos"])
+            if servo["fresh"]:
+                self._answered.add(joint)
+            # A servo that never answered has no position (0 in the snapshot): leave it out, so that connect() holds
+            # it at ZERO_POSE (raw center) instead of driving a servo that appears on its ID to step 0.
+            if joint in self._answered:
+                state.joint_positions[joint] = self._steps_to_rad(joint, servo["pos"])
             # STS3215 "Present Speed" shares the position register's step resolution
             # (Feetech convention: raw units are steps/second).
             state.joint_velocities[joint] = (
@@ -1057,7 +1064,7 @@ class Chromapi:
         while time.monotonic() < deadline:
             time.sleep(_SETTLE_WINDOW_S)
             now = self.get_joint_positions()
-            if max(abs(now[j] - before[j]) for j in now) < _SETTLE_MOTION_RAD:
+            if max((abs(now[j] - before[j]) for j in now if j in before), default=0.0) < _SETTLE_MOTION_RAD:
                 return
             before = now
 

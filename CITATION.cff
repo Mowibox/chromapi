@@ -7,8 +7,8 @@ authors:
     family-names: Thiongane
     orcid: "https://orcid.org/0009-0002-9812-5540"
     website: "https://mowibox.github.io"
-version: 1.0.0
-date-released: 2026-11-19
+version: 1.0.1
+date-released: 2026-11-25
 doi: 10.5281/zenodo.24356978  # concept DOI: always resolves to the latest version
 repository-code: "https://github.com/Mowibox/chromapi"
 url: "https://mowibox.github.io/chroma/en/chromapi/"

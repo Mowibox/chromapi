@@ -261,3 +261,23 @@ def test_connect_waits_for_a_booting_stm32(monkeypatch):
     monkeypatch.setattr(C, "STM32_BOOT_WAIT_S", 0.05)  # a board that never answers: give up, still connected
     backend._bridge = Bridge(silent_reads=10**9)
     assert backend.connect() and backend._bridge.calls[-1] == "version"
+
+
+def test_never_answered_servo_has_no_position() -> None:
+    """A servo absent since start-up (pos 0 in the snapshot) is left out, so connect() holds it at the center."""
+    import chromapi.chromapi as C
+
+    class Bridge:
+        def __init__(self):
+            self.fresh = 0x0FFE  # servo 1 (tl_1) not on the bus
+
+        def get_state(self):
+            return BridgeClient._decode_state_snapshot(_snapshot_payload(fresh=self.fresh))
+
+    backend = C.HardwareBackend(C.load_config(calibration_path="/nonexistent")["servos"])
+    backend._bridge = Bridge()
+    assert "tl_1" not in backend.read_state().joint_positions
+    backend._bridge.fresh = 0x0FFF  # plugged in
+    assert "tl_1" in backend.read_state().joint_positions
+    backend._bridge.fresh = 0x0FFE  # a lost reply later: still reported, its last position
+    assert "tl_1" in backend.read_state().joint_positions
