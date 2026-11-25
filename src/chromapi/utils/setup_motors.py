@@ -12,7 +12,7 @@ import argparse
 import time
 from typing import Dict, List, Optional
 
-from chromapi.chromapi import STS3215_CENTER_STEP as CENTER_STEP, load_config
+from chromapi.chromapi import STS3215_CENTER_STEP, load_config
 from chromapi.hardware.motherboard_bridge import BridgeClient
 
 FACTORY_ID = 1
@@ -120,7 +120,7 @@ def setup_one(bridge: BridgeClient, new_id: int, ids: List[int]) -> int:
         print(f"[!] Read back different from what was written (lost frame?): {wrong}. Run again.")
         return 1
     # Held at its center (q=0) so that its horn and leg are mounted straight, whatever position it came in
-    bridge.write_servo_register(new_id, REG_GOAL_POSITION, 2, CENTER_STEP)
+    bridge.write_servo_register(new_id, REG_GOAL_POSITION, 2, STS3215_CENTER_STEP)
     bridge.write_servo_register(new_id, REG_TORQUE, 1, 1)
     print(f"[SUCCESS] Servo {new_id} set up" + (". Turn the robot off and on again for the changes to take effect."
                                                 if new_id == min(ids) else "."))
