@@ -12,7 +12,7 @@ import argparse
 import time
 from typing import Dict, List, Optional
 
-from chromapi.chromapi import load_config
+from chromapi.chromapi import STS3215_CENTER_STEP, load_config
 from chromapi.hardware.motherboard_bridge import BridgeClient
 
 FACTORY_ID = 1
@@ -26,6 +26,8 @@ REG_D = 22
 REG_I = 23
 REG_MODE = 33
 REG_ACCEL = 41
+REG_TORQUE = 40
+REG_GOAL_POSITION = 42
 REG_LOCK = 55
 # Undocumented: acceleration cap of the internal motion profile.
 REG_MAX_ACCEL = 85
@@ -94,7 +96,6 @@ def configure_servo(bridge: BridgeClient, target_id: int, new_id: int) -> Dict[s
         else:
             print(f" {key:12} : {val}")
     print("="*40)
-    print(" Max Accel only applies after a servo power cycle.")
     return wrong
 
 def setup_one(bridge: BridgeClient, new_id: int, ids: List[int]) -> int:
@@ -118,7 +119,10 @@ def setup_one(bridge: BridgeClient, new_id: int, ids: List[int]) -> int:
     if wrong:
         print(f"[!] Read back different from what was written (lost frame?): {wrong}. Run again.")
         return 1
-    print(f"[SUCCESS] Servo {new_id} set up" + (": power-cycle the robot so that Max Accel applies."
+    # Held at its center (q=0) so that its horn and leg are mounted straight, whatever position it came in
+    bridge.write_servo_register(new_id, REG_GOAL_POSITION, 2, STS3215_CENTER_STEP)
+    bridge.write_servo_register(new_id, REG_TORQUE, 1, 1)
+    print(f"[SUCCESS] Servo {new_id} set up" + (". Turn the robot off and on again for the changes to take effect."
                                                 if new_id == min(ids) else "."))
     return 0
 
@@ -159,7 +163,7 @@ def main() -> int:
             print(f"[!] Read back different from what was written (lost frame?): {wrong}. Run again.")
         if missing or wrong:
             return 1
-        print("\n[*] All servos configured. Power-cycle the robot so that Max Accel applies.")
+        print("\n[*] All servos configured. Turn the robot off and on again for the changes to take effect.")
         return 0
 
     try:

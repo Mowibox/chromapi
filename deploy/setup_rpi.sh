@@ -90,6 +90,8 @@ step "Python ($VENV)"
 "$VENV/bin/pip" install --upgrade pip
 "$VENV/bin/pip" install -e "$REPO[audio,rl]"  # editable: a git pull updates the code
 mkdir -p "$HOME/.local/bin" && ln -sf "$VENV/bin/chromapi" "$HOME/.local/bin/chromapi"  # on PATH at next login
+ACTIVATE="source $VENV/bin/activate  # chromapi: python3 is the venv's (setup_rpi.sh)"
+grep -qxF "$ACTIVATE" "$HOME/.bashrc" 2>/dev/null || echo "$ACTIVATE" >> "$HOME/.bashrc"  # at next login
 
 step "Services"
 sudo install -m 644 "$DEPLOY/chromapi-audio-keepalive.service" /etc/systemd/system/

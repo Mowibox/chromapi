@@ -36,6 +36,8 @@ def test_assembly_from_12_down_to_1():
     bus.servos[1] = {}
     assert sm.setup_one(bus, 1, IDS) == 0  # ID 1 last: keeps it, registers written
     assert set(bus.servos) == set(IDS) and bus.servos[1][sm.REG_MAX_ACCEL] == sm.MAX_ACCEL
+    assert all(bus.servos[i][sm.REG_GOAL_POSITION] == sm.STS3215_CENTER_STEP and bus.servos[i][sm.REG_TORQUE] == 1
+               for i in IDS)  # each one held straight for its leg
 
 
 def test_refused_when_the_chain_or_the_new_servo_is_missing():
