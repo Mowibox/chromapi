@@ -10,7 +10,7 @@ import argparse
 import re
 import subprocess
 import time
-from typing import List, Tuple
+from typing import List, Set, Tuple
 
 SCAN_S = 20  # [s]
 STEP_TIMEOUT_S = 30  # [s]
@@ -57,7 +57,7 @@ def gamepads(paired: bool = False) -> List[Tuple[str, str]]:
     return found
 
 
-def _scan(scan_s: float) -> set:
+def _scan(scan_s: float) -> Set[str]:
     """MACs of the devices seen advertising during the scan."""
     output = _ctl("--timeout", f"{scan_s:.0f}", "scan", "on", timeout_s=scan_s + STEP_TIMEOUT_S)[1]
     return set(re.findall(r"Device ([0-9A-F:]{17})", output))
