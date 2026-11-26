@@ -91,7 +91,7 @@ chromapi report                   # support report to attach to a message on Dis
 
 `chromapi --help` lists every command (`python -m chromapi` works too).
 
-`chromapi run` starts the robot and its web app, at `https://<robot-name>.local:5000` (or `https://<robot-ip>:5000`) from a phone or a PC on the same network.
+`chromapi run` starts the robot and its web app, at `https://<robot-name>.local:5000` (or `https://<robot-ip>:5000`) from a phone or a PC on the same network. With `chromapi run --sim`, it runs on your PC at `https://localhost:5000`.
 
 The same code then runs on the robot with `Chromapi(backend="hardware")`, which talks to the motherboard over UART.
 

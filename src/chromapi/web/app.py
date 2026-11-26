@@ -1093,9 +1093,11 @@ def main() -> int:
         name="chromapi-web", daemon=True,
     ).start()
     scheme = "https" if certificate else "http"
-    if args.host == "0.0.0.0":
-        logger.info("Web app on %s://%s.local:%d (or %s://%s:%d)", scheme, socket.gethostname(), args.port,
-                    scheme, _lan_ip(), args.port)
+    if args.sim:
+        logger.info("Web app on %s://localhost:%d", scheme, args.port)
+    elif args.host == "0.0.0.0":
+        logger.info("Web app on %s://%s.local:%d (or %s://%s:%d)", scheme, socket.gethostname().split(".")[0],
+                    args.port, scheme, _lan_ip(), args.port)
     else:
         logger.info("Web app on %s://%s:%d", scheme, args.host, args.port)
 

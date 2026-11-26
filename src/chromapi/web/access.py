@@ -137,7 +137,7 @@ class Access:
 
 def tls_certificate(directory: Path = TLS_DIR) -> Optional[Tuple[str, str]]:
     """(certificate, key) paths of this robot's self-signed certificate, made on first use; None without openssl."""
-    host = socket.gethostname()
+    host = socket.gethostname().split(".")[0]  # DHCP may append a domain; mDNS uses the short name
     cert, key = directory / f"{host}.cert.pem", directory / f"{host}.key.pem"
     if cert.exists() and key.exists():
         return str(cert), str(key)
